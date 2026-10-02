@@ -1,0 +1,1094 @@
+先给结论：**上一版“把 T-RO 的 \(\tau\) 直接换成 \(K,D\)”是不严谨的。**深入读完这几篇后，更自然的方案是：
+
+$$
+\boxed{
+\text{保留 T-RO 的接触动力学 + 机器人动力学 + DDP/IK/Projection + MPC}
+}
+$$
+
+只把 T-RO 中“**固定的低层阻抗执行关系**”改成“**由 MPC 预测选择的接触坐标系刚度**”；机器人最终仍然施加关节力矩 \(\tau\)，只是 \(\tau\) 不再是完全自由的，而由所选阻抗和当前接触状态产生。
+
+这不是文字上的区别，而是整个公式链是否成立的关键。
+
+---
+
+# 1. 先把 T-RO 原方法写清楚
+
+T-RO 的状态是：
+
+$$
+x_k=
+[q_k,\dot q_k,F_{e,k}]
+$$
+
+控制量直接是：
+
+$$
+u_k=\tau_k.
+$$
+
+它把接触动力学和机器人动力学合起来：
+
+$$
+x_{k+1}=f(x_k,\tau_k)
+$$
+
+然后解：
+
+$$
+\min_{\tau_{0:H-1}}
+\sum_k
+\left[
+\underbrace{\delta F_k^TQ_F\delta F_k}_{力跟踪}
++
+\underbrace{\|FK(q_k)-x^d_k\|_{W_p}^2}_{轨迹跟踪}
++
+\underbrace{\tau_k^TR\tau_k}_{控制代价}
+\right].
+$$
+
+并满足机器人、力矩、接触约束。 
+
+求解结构：
+
+$$
+\boxed{
+DDP\;(\text{机器人+接触动力学})
+\leftrightarrow
+IK\;(\text{路径})
+\leftrightarrow
+Projection\;(\text{约束})
+}
+$$
+
+这三块通过 ADMM（一致性交替方向乘子法）协调。
+
+真正执行机器人时又是：
+
+$$
+\tau_{\rm real}
+=
+\underbrace{\tau_{\rm MPC}}_{\text{前馈}}
++
+\underbrace{K(q_{\rm curr}-q_d)}_{\text{固定反馈}}
++
+\underbrace{\delta\tau_{\rm FC}}_{\text{力反馈}},
+$$
+
+其中
+
+$$
+\delta\tau_{\rm FC}
+=
+C J^T(F_e^d-F_e^{meas}).
+$$
+
+T-RO 明确说底层 KUKA 还运行**预设固定阻抗**。
+
+所以画面是：
+
+> MPC 提前算“机器人应该施加什么力矩、怎么走”；底层固定柔顺性负责真正执行。
+
+---
+
+# 2. 第一次尝试：直接令 \(u=(K,D)\)
+
+即把：
+
+$$
+u=\tau
+$$
+
+直接换成：
+
+$$
+u=(K,D).
+$$
+
+### 理论检查：**不能这么直接换。**
+
+原因：
+
+机器人动力学真正吃的是：
+
+$$
+\tau,
+$$
+
+不是刚度 \(K\)。
+
+原来：
+
+$$
+\ddot q=M^{-1}(\tau-C\dot q-G-J^TF_e).
+$$
+
+如果只给一个 \(K\)，根本不知道：
+
+$$
+\tau=?
+$$
+
+所以必须先定义一个**阻抗执行映射**：
+
+$$
+\boxed{
+(K,D,x,F_e)
+\xrightarrow{\pi_{\rm imp}}
+\tau
+}
+$$
+
+然后才能重新代入 T-RO 动力学。
+
+这正是 Anand 2023 的基本思想：低层首先存在阻抗关系
+
+$$
+M_d\delta\ddot x+
+D_d\delta\dot x+
+K_d\delta x
+=
+f_{\rm ext},
+$$
+
+MPC 优化阻抗，而阻抗控制器负责把参数变成机器人行为。
+
+所以：
+
+$$
+\boxed{\tau\rightarrow K,D}
+$$
+
+直接替换，**拒绝**。
+
+---
+
+# 3. 正确修改：给 T-RO 的机器人动力学套入“参数化阻抗控制律”
+
+对我们的超声任务，医生/上层已经给：
+
+$$
+x_d(t),\qquad F_d(t).
+$$
+
+定义接触坐标系：
+
+* \(n\)：腹壁法向；
+* \(P_t=I-nn^T\)：切平面。
+
+我们希望机器人满足：
+
+$$
+\boxed{
+M_d\ddot e+
+D_k\dot e+
+K_ke
+=
+F_d-F_e
+}
+\tag{A}
+$$
+
+其中：
+
+$$
+e=x-x_d.
+$$
+
+这句话的物理意义非常直接：
+
+> 探头偏离轨迹多少 + 当前接触力与目标力差多少，共同决定机器人应该怎样加速回去；而 \(K,D\) 决定机器人到底“硬还是软”。
+
+由 (A)：
+
+$$
+\ddot x^{cmd}
+=
+\ddot x_d+
+M_d^{-1}
+[
+F_d-F_e-D_k\dot e-K_ke
+].
+\tag{B}
+$$
+
+再用标准机器人逆动力学产生：
+
+$$
+\boxed{
+\tau_k
+=
+\pi_{\rm imp}
+(q_k,\dot q_k,F_{e,k};
+K_k,D_k,x^d_k,F^d_k)
+}
+\tag{C}
+$$
+
+然后**原样塞回 T-RO**：
+
+$$
+\ddot q
+=
+M^{-1}
+[
+\pi_{\rm imp}(\cdot)
+-C\dot q-G-J^TF_e
+].
+\tag{D}
+$$
+
+所以修改后系统变成：
+
+$$
+\boxed{
+x_{k+1}
+=
+f_{\rm VI}(x_k,K_k,D_k)
+}
+$$
+
+而不是：
+
+$$
+x_{k+1}=f(x_k,\tau_k).
+$$
+
+这一步数学上完全闭合。
+
+---
+
+# 4. 为什么这种改法和 T-RO 是“自然融合”，而不是外挂一个 MPVIC？
+
+因为 T-RO 的 DDP 根本不要求控制量一定是 torque（力矩）。
+
+DDP 要求的是：
+
+$$
+x_{k+1}=f(x_k,u_k)
+$$
+
+且 \(f\) 可微。
+
+T-RO 自己说明 DDP 就是：
+
+1. 猜一组 \(u\)；
+2. 用动力学 forward rollout（向前滚动）；
+3. 求动力学/代价关于 \(x,u\) 的导数；
+4. Riccati recursion（黎卡提递推）更新 \(u\)。
+
+我们现在只是把：
+
+$$
+u_k=\tau_k
+$$
+
+改成：
+
+$$
+u_k=\theta_k
+$$
+
+其中：
+
+$$
+\theta_k=(K_k,D_k),
+$$
+
+而：
+
+$$
+\tau_k=\pi_{\rm imp}(x_k,\theta_k).
+$$
+
+于是链式求导：
+
+$$
+\frac{\partial f_{\rm VI}}{\partial\theta}
+=
+\frac{\partial f}{\partial\tau}
+\frac{\partial\pi_{\rm imp}}{\partial\theta}.
+$$
+
+T-RO 本身已经使用 AutoDiff（自动微分）计算动力学导数，所以这一结构在数值上也是兼容的。
+
+### 因此：
+
+$$
+\boxed{\text{DDP 不需要换}}
+$$
+
+更没有理由搬 Anand 的 CEM（交叉熵法）进来。
+
+Anand 使用 CEM 是因为它用 PENN（概率集成神经网络）作为黑箱随机动力学模型；它的算法确实直接采样未来 stiffness profile（刚度序列）\(K_{t:t+T}\)。
+
+我们的 T-RO 接触+机器人模型是显式、平滑、可自动微分的：
+
+> **继续 DDP 比换成 CEM 更自然。**
+
+这就是第一轮“迁移后检查”得到的结果。
+
+---
+
+# 5. 那到底优化 \(K,D\) 两个，还是全部阻抗参数？
+
+这里深入读其他三篇后，结论也改变了：
+
+> **不能没有理由地把 \(K,D,M,\text{setpoint}\) 全部作为决策变量。**
+
+文献实际上给了三种不同选择。
+
+Anand 2023：
+
+$$
+\boxed{\text{只优化 }K}
+$$
+
+并令：
+
+$$
+D=2\sqrt K
+$$
+
+满足 critical damping（临界阻尼）。
+
+Roveda 2022 则直接指出，在它的问题中 setpoint（设定点）与 stiffness（刚度）同时优化存在冗余，因为二者在动力学里相乘，所以最后只优化 setpoint 和 damping。
+
+Haninger 2023 又选择优化 admittance parameters（导纳参数），并专门分析“为什么阻抗参数和轨迹不能随便一起优化”：不同 force/reference 和 impedance 组合可能产生相同平均轨迹，因此会产生欠定问题。
+
+### 对我们意味着什么？
+
+我们的：
+
+$$
+x_d(t),F_d(t)
+$$
+
+是**临床扫查任务给定的**。
+
+所以不要再让 MPC 同时随意改：
+
+$$
+x_d,\;F_d,\;K,\;D.
+$$
+
+否则又产生新的等价自由度。
+
+因此当前最自然的是：
+
+$$
+\boxed{
+x_d,F_d\text{固定为任务参考；MPC只优化阻抗}
+}
+$$
+
+---
+
+# 6. 再进一步：\(D\) 是否真的应该独立优化？
+
+这里可以从我们的接触模型自己推出来。
+
+## 法向
+
+由 (A)，在平衡点附近：
+
+$$
+M_n\ddot e_n+D_n\dot e_n+K_ne_n
+=
+F_d-F_n(d).
+$$
+
+局部线性化：
+
+$$
+F_n(d+\Delta d)
+\approx
+F_n(d)+
+K_{e,n}\Delta d,
+$$
+
+其中：
+
+$$
+\boxed{
+K_{e,n}=
+\frac{\partial F_n}{\partial d}
+}
+$$
+
+是**接触模型自己给出的局部环境刚度**。
+
+于是扰动动力学：
+
+$$
+M_n\Delta\ddot e_n+
+D_n\Delta\dot e_n+
+(K_n+K_{e,n})\Delta e_n=0.
+$$
+
+所以如果希望阻尼比至少为 \(\zeta_n\)：
+
+$$
+\boxed{
+D_n
+\ge
+2\zeta_n
+\sqrt{M_n(K_n+K_{e,n})}
+}
+\tag{E}
+$$
+
+这不是拍脑袋。
+
+Haninger 2023 对接触系统已经推导过对应条件：
+
+$$
+D_i\ge
+2\zeta\sqrt{M_iK_{e,i}},
+$$
+
+并实验发现，当环境变硬时，提高 damping（阻尼）显著减少接触振荡和失接触。 
+
+我们的 (E) 只是因为自身 impedance equation（阻抗方程）里还保留了 \(K_n\)，所以闭环总恢复刚度为：
+
+$$
+K_n+K_{e,n}.
+$$
+
+---
+
+# 7. 切向同样可以推
+
+T-RO 滑动模型局部包含：
+
+$$
+F_t
+\approx
+F_{\rm friction}
++
+k_dv_t.
+$$
+
+因此在线性化扰动下，环境本身已经提供：
+
+$$
+k_d\Delta\dot e_t.
+$$
+
+那么：
+
+$$
+M_t\Delta\ddot e_t
++
+(D_t+k_d)\Delta\dot e_t
++
+K_t\Delta e_t=0.
+$$
+
+所以：
+
+$$
+\boxed{
+D_t+k_d
+\ge
+2\zeta_t\sqrt{M_tK_t}
+}
+$$
+
+即：
+
+$$
+\boxed{
+D_t
+\ge
+2\zeta_t\sqrt{M_tK_t}-k_d.
+}
+\tag{F}
+$$
+
+这一步非常重要：
+
+> **接触模型不仅预测力，还直接告诉我们阻抗阻尼至少应该多大。**
+
+因此目前最合理的设计不是让 MPC 无约束地同时搜索四个数：
+
+$$
+K_n,D_n,K_t,D_t.
+$$
+
+而是：
+
+$$
+\boxed{
+\text{MPC 主动选择 }K_n,K_t;
+\quad
+D_n,D_t\text{由接触局部动力学约束/生成}.
+}
+$$
+
+这与 Anand “优化刚度、阻尼由稳定条件决定”的做法同方向，但我们的阻尼不是简单：
+
+$$
+D=2\sqrt K,
+$$
+
+而是显式利用 T-RO 接触动力学中的：
+
+$$
+K_e,\quad k_d.
+$$
+
+这是比机械移植 MPVIC 更自然的结果。
+
+---
+
+# 8. 下一次理论检查：可变 \(K\) 会不会破坏稳定/无源？
+
+会。
+
+这是把固定阻抗改成可变阻抗以后**必然出现的新问题**。
+
+考虑阻抗储能：
+
+$$
+V=
+\frac12\dot e^TM_d\dot e+
+\frac12e^TK(t)e.
+$$
+
+求导：
+
+$$
+\dot V
+=
+\cdots+
+\boxed{
+\frac12e^T\dot K e
+}.
+$$
+
+固定刚度时：
+
+$$
+\dot K=0.
+$$
+
+这个项不存在。
+
+但可变刚度时如果：
+
+$$
+\dot K>0,
+$$
+
+机器人可以凭空增加虚拟弹簧中的能量。
+
+Anand 2023 自己明确承认：
+
+> constant-gain impedance（固定增益阻抗）与被动环境交互可以保持 passivity（无源），但**变化阻抗后这个性质丢失**。
+
+所以如果我们只是：
+
+$$
+\text{T-RO}+MPC优化K
+$$
+
+然后声称安全稳定，理论上是不完整的。
+
+---
+
+# 9. 这时 Xue 2025 的 energy tank（能量罐）才是“自然加入”，不是堆模块
+
+Xue 2025 正是针对：
+
+$$
+\boxed{\dot K>0\Rightarrow\text{可能注入能量}}
+$$
+
+这个问题。
+
+它明确写：
+
+> stiffness increase（刚度增加）会导致 controlled system self-generation of energy（系统自生能量），所以约束正的刚度变化率。
+
+其能量罐：
+
+$$
+V_{tk}
+$$
+
+储存系统阻尼耗散的能量，并限制：
+
+$$
+\dot K.
+$$
+
+当能量预算不够时，就不允许刚度继续快速提高。
+
+### 怎么嵌进 T-RO 最自然？
+
+**不放在 MPC 后面过滤。**
+
+而直接放进 T-RO 原来的：
+
+$$
+\boxed{\text{Projection block（约束投影块）}}
+$$
+
+因为这个 block 本来就负责：
+
+* joint limits；
+* torque limits；
+* contact constraints。
+
+
+
+现在额外加入：
+
+$$
+K_{\min}\le K_k\le K_{\max},
+$$
+
+$$
+|\Delta K_k|\le\Delta K_{\max},
+$$
+
+$$
+E_{tank,k}\ge0,
+$$
+
+以及 energy-compatible stiffness-rate constraint（能量兼容的刚度变化约束）。
+
+这样：
+
+> DDP 提议“最好把刚度升到 800 N/m”；
+>
+> Projection 检查“这个变化是否满足力矩、接触、能量/无源约束”。
+
+仍然完全是 T-RO 的：
+
+$$
+\boxed{
+DDP \leftrightarrow IK \leftrightarrow Projection
+}
+$$
+
+架构。
+
+---
+
+# 10. 一个很重要的纠正：Xue 2025 不是“直接 MPC 搜索 \(K,D\)”
+
+深入看公式后需要纠正之前的说法。
+
+Xue 2025 的：
+
+$$
+K_i(t),D_i(t)
+$$
+
+首先是由 force-error-based mode（基于力误差的模式）产生：
+
+$$
+K_i(t)=\mu(e_f,\dot e_f)K_{i,\max},
+$$
+
+$$
+D_i(t)
+=
+D_{i,\max}
++
+\mu(e_f,\dot e_f)
+(D_{i,\min}-D_{i,\max}).
+$$
+
+
+
+它后面的 MPC 实际决策变量是 position-error jerk（位置误差加加速度）：
+
+$$
+u=\dddot e_z,
+$$
+
+不是直接：
+
+$$
+u=(K,D).
+$$
+
+
+
+所以：
+
+**Xue 2025 不能作为“直接 MPC 优化阻抗”的主要依据。**
+
+它真正应该迁移给我们的只有：
+
+$$
+\boxed{\text{variable-stiffness passivity mechanism}}
+$$
+
+以及以后可能的：
+
+$$
+\text{unknown environment adaptation}.
+$$
+
+直接优化 stiffness（刚度）的依据主要是 Anand 2023；gradient-based impedance optimization（基于梯度的阻抗优化）的直接依据则是 Haninger 2023。 
+
+---
+
+# 11. Roveda 2022 要不要搬进来？
+
+**不搬 Q-learning（Q 学习）、ANN ensemble（神经网络集成）和 actor–critic（演员–评论家）。**
+
+原因很明确。
+
+它之所以需要 ANN：
+
+> human–robot interaction dynamics（人–机器人交互动力学）未知。
+
+因此学习：
+
+$$
+\dot z=f(z)+g_1(z)u_1+g_2(z)u_2.
+$$
+
+
+
+而我们已经有：
+
+$$
+\boxed{
+\text{T-RO显式机器人动力学}
++
+\text{显式软接触动力学}
+}
+$$
+
+再用 ANN 替换它，相当于把主线扔掉。
+
+它真正给我们的价值只有一个：
+
+> **不要无原则地同时优化多个等价控制自由度。**
+
+Roveda 明确因为 setpoint 和 stiffness 同时优化存在作用重叠，最终没有优化 stiffness。
+
+所以：
+
+$$
+\boxed{\text{Q-learning：拒绝}}
+$$
+
+但它的**决策变量可辨识性检查原则：保留。**
+
+---
+
+# 12. 经过这几轮修改后，当前 Method 才是这样的
+
+## 输入
+
+腹部超声给定：
+
+$$
+x_d(t),\qquad F_d(t)
+$$
+
+以及当前：
+
+$$
+q,\dot q,F_e.
+$$
+
+---
+
+## Step 1 — 接触动力学
+
+**沿用 T-RO 主线。**
+
+当前接触状态：
+
+$$
+(d,v,F_e)
+$$
+
+通过适合超声探头几何的接触模型预测：
+
+$$
+\dot F_e=f_c(d,v,F_e).
+$$
+
+球形→宽探头几何是另一个已经确认需要做的 contact-model replacement（接触模型替换）；AuSoScan 的滑动不对称不能自动一起搬入。
+
+---
+
+## Step 2 — 机器人动力学
+
+**完全沿用 T-RO：**
+
+$$
+\ddot q
+=
+M^{-1}
+[
+\tau-C\dot q-G-J^TF_e
+].
+$$
+
+---
+
+## Step 3 — 关键修改：自由 torque control → impedance-parameterized torque
+
+T-RO：
+
+$$
+u=\tau.
+$$
+
+修改为：
+
+$$
+\boxed{
+u=\theta=[k_n,k_t]
+}
+$$
+
+定义：
+
+$$
+K(\theta)
+=
+k_nnn^T+k_t(I-nn^T).
+$$
+
+法向、切向 damping（阻尼）不独立乱搜，而根据局部接触动力学生成：
+
+$$
+D_n
+\ge
+2\zeta_n
+\sqrt{M_n(K_n+K_{e,n})},
+$$
+
+$$
+D_t+c_{e,t}
+\ge
+2\zeta_t\sqrt{M_tK_t}.
+$$
+
+然后：
+
+$$
+\theta
+\rightarrow
+(K,D)
+\rightarrow
+\pi_{\rm imp}
+\rightarrow
+\tau.
+$$
+
+---
+
+## Step 4 — 新闭环预测模型
+
+把阻抗控制律直接代回 T-RO：
+
+$$
+\boxed{
+x_{k+1}
+=
+f_{\rm VI}(x_k,\theta_k)
+}
+$$
+
+所以 MPC 真正能问：
+
+> 如果未来 1 秒法向刚度设成这组、切向刚度设成那组，经过机器人动力学和软接触动力学后，未来的力和路径会怎样？
+
+---
+
+## Step 5 — T-RO 的 DDP 原样发挥作用
+
+修改前：
+
+$$
+DDP:\quad
+\min_{\tau_{0:H-1}}J.
+$$
+
+修改后：
+
+$$
+\boxed{
+DDP:\quad
+\min_{\theta_{0:H-1}}J.
+}
+$$
+
+代价仍然保持 T-RO 的核心：
+
+$$
+J=
+\sum
+\left[
+\delta F^TQ_F\delta F
++
+\|x-x_d\|_{W_p}^2
++
+R_\theta\|\Delta\theta\|^2
+\right].
+$$
+
+这里把原来的：
+
+$$
+\tau^TR\tau
+$$
+
+改为：
+
+* 可保留实际 torque effort（力矩代价）\(\tau(\theta)^TR_\tau\tau(\theta)\)；
+* 再加 \(\Delta\theta\) 防止阻抗跳变。
+
+---
+
+## Step 6 — IK
+
+**T-RO 原样保留。**
+
+仍然负责：
+
+$$
+FK(q)\approx x_d.
+$$
+
+不让 MPC 再随意改临床扫描轨迹，避免和刚度产生决策冗余。
+
+---
+
+## Step 7 — Projection
+
+**T-RO 原有：**
+
+$$
+q\in\mathcal J,\quad
+\tau\in\mathcal U,\quad
+contact\in\mathcal F.
+$$
+
+**新增的不是另一套控制器，而是变量改变后必需的约束：**
+
+$$
+K_{\min}\le K\le K_{\max},
+$$
+
+$$
+|\Delta K|\le\Delta K_{\max},
+$$
+
+$$
+\tau(\theta)\in\mathcal U,
+$$
+
+以及：
+
+$$
+\boxed{\text{energy-tank/passivity constraint（能量罐/无源约束）}}.
+$$
+
+---
+
+## Step 8 — MPC
+
+还是 T-RO：
+
+$$
+\boxed{
+\text{当前状态}
+\rightarrow
+\text{求未来 }K_n,K_t
+\rightarrow
+\text{只执行第一组}
+\rightarrow
+\text{重新测量}
+}
+$$
+
+所以整个主链没有换：
+
+$$
+\boxed{
+\text{Contact}
+\rightarrow
+\text{Robot Dynamics}
+\rightarrow
+\text{DDP}
+\leftrightarrow
+\text{IK}
+\leftrightarrow
+\text{Projection}
+\rightarrow
+\text{MPC}.
+}
+$$
+
+真正改变的只是：
+
+$$
+\boxed{
+\text{自由 torque trajectory}
+\rightarrow
+\text{由 contact-aware variable impedance（接触感知可变阻抗）参数化的 torque}
+}
+$$
+
+---
+
+# 13. 旋转阻抗现在为什么仍然不应该加入
+
+现在有了一个很明确的理论理由，而不仅仅是“先简化”。
+
+目前接触模型输出的是：
+
+$$
+F_n,F_t,
+$$
+
+并没有预测：
+
+$$
+M_x,M_y,M_z.
+$$
+
+因此如果增加：
+
+$$
+K_R,D_R,
+$$
+
+MPC 没有一个接触物理通道去判断：
+
+> 旋转阻抗改变以后，接触结果改善了多少？
+
+它基本只能通过 orientation tracking cost（姿态跟踪代价）选择旋转阻抗。
+
+那与普通姿态控制没有本质区别。
+
+所以：
+
+$$
+\boxed{
+\text{在接触模型升级为 force+moment 之前，不加入可变旋转阻抗。}
+}
+$$
+
+这是**模型—动作闭合性检查**的结果。
+
+---
+
+# 当前最合理的方法一句话
+
+> **以 T-RO 2023 的 deformable-contact-aware DDP–IK–Projection MPC 为完整主骨架，用适合超声探头的接触模型替换球形接触；再将原本自由优化的关节力矩参数化为接触坐标系法向/切向可变刚度产生的阻抗力矩，利用接触模型局部 Jacobian（雅可比）确定稳定所需阻尼，并把可变刚度引入的额外能量通过 Xue 2025 型 energy-tank（能量罐）约束直接放进 T-RO Projection block（投影块）；DDP、IK、ADMM 和 MPC 本身不换。**
+
+这版里，**Anand 只贡献“刚度作为预测决策变量”的机制；Haninger 贡献“接触刚度决定阻尼约束”的理论依据；Xue 贡献“可变刚度破坏无源性后的能量约束”；Roveda 只用于排除冗余决策变量。**没有把任何一篇论文整块拼进 T-RO。

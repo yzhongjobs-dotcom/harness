@@ -1,0 +1,349 @@
+我会先按现有 run 的 machine authority 建立本轮执行边界，并完整读取三份流程标准和当前正式绑定。随后若 Controller 确认允许 revision，就只通过 arisctl 最小返回 method_design。本轮会把每个会改变论文核心因果链、信息结构、适应语义或决策关系的 choice 都视为决定性选择；逐项完成候选发现、最强简单竞争方案和证据闭合，而不是只修补 R9 已知的三处。需要重读论文全文时，我会使用 PDF 阅读流程做正文与公式核查。
+
+
+
+
+运行了命令
+
+
+三份标准已经完整读取。Controller 当前确为 principle_human_selection，尚未选择测试 Candidate；现有界面动作通过 human_approve 承载 request_revision。我现在按用户明确决定执行最小正式回退，只返回 method_design，不触及任何上游 accepted 状态。
+
+
+
+
+运行了命令
+
+
+正式回退已完成，当前 phase 是 method_design。初步完整审计表明，决定性 choices 不止上一轮的三项，至少包括：接触算子的物理/学习分工、历史状态语义、支持域与校准外 authority、突变/漂移适应方式、是否需要主动辨识、四增益 action class、一步或多步决策、鲁棒或概率约束、能量机制，以及 total scan/withdraw applied-action relation。求解器品牌、网络宽度和频率不列为独立科学选择。
+我将先处理最上游的接触表示 choice；其选择会改变后续 adaptation 与 optimizer 的正确形式。当前最强简单竞争者不是“纯 HC”，而是可在线辨识的有限面积黏弹/摩擦 grey-box。需要补的唯一判别证据是：在本任务可观测性和安全激励条件下，完整物理路线是否能恢复会改变阻抗决策的状态，还是必须保留学习 residual。
+
+
+
+
+运行了命令已搜索网页
+
+
+上下文已自动压缩
+
+
+
+我已按正式机制把当前 run 最小返回到 method_design；接下来不会保留 R9 的冗余结构，而会逐项关闭决定性选择。当前审查已显示一个关键方向：把“纯学习名义模型 + 另行 residual 适应”改为有物理约束的决策充分 hybrid contact model，并把 GRU/TCN、EW-RLS、RTI-SQP 等降回实现层；我会先用现有 Evidence 验证这是否确实胜过最强简单竞争路线，再重写正式 artifacts。
+
+
+
+
+运行了命令
+
+
+决定性选择的边界已经收紧：需要 Method-fit 论证的是 contact model 的机制类别、跨校准变化的适应关系、预测决策是否必须多步、硬约束如何进入同一 applied-action relation；GRU/TCN、EW-RLS、RTI-SQP、本体网络宽度等不再作为科学选择。我现在只为前两项尚缺的判别证据做最小增量检索，不重新做 Principle search。
+
+
+
+
+运行了命令已搜索网页
+
+
+已查看 3 张图像
+
+
+
+已查看 3 张图像
+
+
+
+已查看 3 张图像
+
+
+
+编辑了文件读取文件运行了命令
+
+
+审计已经排除了两类“看起来先进、但没有必要性”的结构：
+一是把 GRU/TCN、EW-RLS、RTI-SQP 本身当成贡献；二是让在线估计后的较小不确定集直接放松 calibration-out 阶段的硬约束。修订后的关系会保留一条独立有效的 in-envelope hard authority，在线适应只改变预测、排序并可进一步收紧动作；更锋利的统计 authority 只能在新的独立审计后启用。这样既处理真实变化，又不把“模型更自信”误写成安全性。
+
+
+
+
+编辑了文件运行了命令
+
+
+完整 R10 Method 和逐项 Method-selection justification 已形成并通过 Controller 的机器校验，正式 review request 已绑定为 8e53617a1cb34c0ca143faa9da314338。现在提交独立 Method Reviewer；Reviewer 将直接只读访问绑定的原始 packet、accepted RCA/RMC、Evidence 以及两份 R10 论文级 artifacts，并按三项联合硬标准判定。若任一项不闭合，我会留在 method_design 按其具体意见继续修订。
+
+
+
+
+R10 method review开始工作
+
+独立 Reviewer 仍在审查完整 packet 与论文级 artifacts；当前没有要求补充材料或发现上游冲突。我会等待正式 verdict，而不是用主代理自评替代独立审查。
+
+
+
+
+R10 method review已完成
+
+独立 Reviewer 给出 REVISE_PRINCIPLES：Problem fit 通过，但 Method fit 与 Scientific strength 未通过。核心问题不是方法不连贯，而是 R10 把若干尚待判别的机制选择写成了“唯一必要”，同时把多项选择合并进同一 prediction，无法归因。Reviewer 还指出 R10 新引入的 drift/reset、structured hybrid、multistep/energy 等没有同步到正式 Source/derivation chain。
+我将按 verdict 留在 method_design：先正式接收返回，再把“科学核心必须是什么”和“当前可落地实现采用什么”分开；无法由现有 Evidence 唯一决定的路线会保留为实质不同 Candidate，而不是继续倒推唯一性。
+
+
+
+
+已在 1s 内运行 python -m arisctl complete-phase impedance-control-landscape-e2e
+
+
+
+
+R10 method review已完成
+
+运行了命令
+
+
+R10 method review已完成
+
+运行了命令
+
+
+上下文已自动压缩
+
+
+
+R10 的独立评审已给出明确的修订结论：问题匹配通过，但它把尚未由证据排除的“物理模型、结构化学习模型、混合模型”过早收敛成了唯一混合路线，同时把若干实现选择写成了科学必然。接下来我会按正式返回后的 live 状态重建 R11：保留共同的 RMC 必需主干，把真正未闭合的接触表示机制作为可竞争路线，并将求解器、序列网络、集合形状等降回实现层。
+
+
+
+
+已读取文件运行了命令
+
+
+方法主线本身不需要推倒重来；需要修正的是“唯一性”的层级。R11 将把确定性收敛到共同科学主干——决策充分的动作条件接触结果、真正改变预测与排序的校准外适应、以及约束内生且截止时间完备的法向–切向阻抗关系——而把目前证据无法唯一决定的接触归纳偏置保留为三种可竞争实例：结构化物理、结构化学习、物理–残差混合。这样既不拿实现偏好冒充必要性，也不会用保守拒绝替代适应。
+
+
+
+
+编辑了文件运行了命令
+
+
+Controller 正式返回会使上一轮的 Evidence 绑定失去当前生命周期效力；我现在按 R11 的新义务重新采用原有 Evidence。这里不新增文献、不重做检索，只恢复仍兼容证据的正式当前性。
+
+
+
+
+编辑了文件读取文件运行了命令
+
+
+R11 已通过 Controller 的结构与证据当前性校验，正式 review request 为 79cf3789f9ff44d5b866363468f8c73a。现在提交新的独立 Method Reviewer；它将直接只读检查绑定 packet、R11 完整 Methodology 与选择论证，并分别对 Problem fit、Method fit/necessity、Scientific strength 作判定。
+
+
+
+
+R11 method review开始工作
+
+已在 1s 内运行 Get-Item idea-stage/METHOD_DESIGN_PACKET.json,idea-stage/METHOD_DESIGN.md,idea-stage/METHOD_SYNTHESIS_COMPLETE_R11.md,idea-stage/METHOD_SELECTION_JUSTIFICATION_R11.md | Select-Object Name,Length,LastWriteTime; git diff --stat; git status --short
+
+
+
+
+R11 method review已完成
+
+独立评审第二轮仍要求修订，但结论更集中：共同科学主线与三候选保留策略均通过；未闭合的是形式与可证伪性——每个 Candidate 的 origin 只绑定了表示分支，尚未把共同 total-action 推导纳入完整因果链；若干 killer concept 仍把能量、适应、截止时间等混在一起；两个旧 Academic Bridge execution 的 provenance 还错误地沿用了失败检索。没有上游 RCA 冲突。我会按这四点做最小 R12 修订，不改变已通过的主线。
+
+
+
+
+编辑了文件读取文件运行了命令
+
+
+上下文已自动压缩
+
+
+
+R11 的正式评审已经把剩余缺口压缩到“候选来源链、杀手级竞争概念和候选特异的 closest-prior 闭合”三类。我现在将这些直接收敛到 R12，不改 accepted Problem/RCA/RMC，也不引入新的方法复杂度；随后会重新走独立 Method Reviewer，未三项全过就继续修订。
+
+
+
+
+运行了命令
+
+
+我提醒一遍：最终 Method 必须是论文级、可实现的完整技术路线；每个决定性环节都必须基于 Evidence 在主要可行候选中选出具体且最优的方法，并使整体同时满足 Problem fit、Method fit / necessity、Scientific strength，不能停留在抽象机制类别或任意可行实现。  
+
+
+
+
+
+
+
+1:41
+
+
+
+
+
+
+已编辑 METHOD_DESIGN_PACKET.json+2-5
+
+
+
+
+
+
+提醒有效。R11 的“保留三类 representation、把其余留作 implementation freedom”只是把搜索空间诚实展开，还不满足你现在强调的终态。我会把 R12 改为真正的选择收敛：对接触表示、在线适应、预测域/决策变量、约束内化、求解与 deadline action 分别指定主方案和最强简单对手；只有确属不影响科学机制与结果的参数，才保留实现自由。最终提交的将是可直接进入实验设计的一条完整方法，而不是 P/L/H 三个抽象类别。
+
+
+
+
+运行了命令
+
+
+当前真正会改变选择的唯一知识缺口，是“物理模型是否足以覆盖 accepted envelope，还是必须引入 learned residual”。我会只针对这个判别器做一次增量检索；若证据仍不能排除简单物理路线，就不能按标准虚构 hybrid/learned 的必要性，终态会选择证据支持的最小路线。其余 MPVIC、约束 MPC、set-membership 与能量机制已有足够证据，不扩散检索。
+
+
+
+
+编辑了文件运行了命令已搜索网页
+
+
+R12 已经从“三类表示待选”收敛为一条具体方法：选择最强简单的 hereditary finite-area physical capacity 路线，不再预装 learned residual；并把固定面 H-polytope 适应、四增益、最短决策相关 horizon、能量内化、RTI-SQP 实例化和 deadline-total withdrawal 全部闭合。现在我正在把这些选择重新绑定到 live Evidence 并做 Controller 合同校验；任何 schema 或因果绑定问题会在送审前直接修正。
+
+
+
+
+编辑了文件运行了命令
+
+
+上下文已自动压缩
+
+
+
+我会沿当前正式 run 继续，不改 Harness、不重开流程。先确认刚才增量检索结果是否已被 Controller 接收及当前允许动作；随后只补齐 R12 的正式 Evidence provenance，再提交独立 Method Reviewer。若三项联合标准未全过，我会按正式 revision 继续收敛，而不会把一个“可行但未必最优”的具体实现当作完成。
+
+
+
+
+运行了命令
+
+
+增量检索已被正式记录为 Q0165–Q0168，并且把既有关键论文重新绑定到了本轮的两个 Academic Bridge 与两个同领域查询；没有引入新的方法分支。现在我会关闭这次最小检索批次，并把可复用全文重新纳入当前 Evidence context，而不是重复阅读整套文献。
+
+
+
+
+编辑了文件运行了命令
+
+
+R12 已通过 Controller 的形式校验并生成新的只读 review request（073d7bd…）。当前收敛的是一条具体路线，而不是机制类别：H‑CATI 将广义 Maxwell/Prony 法向记忆、有限接触斑块与 LuGre 型预滑移状态形成可在线辨识的接触容量集，再由同一鲁棒时域决策产生法向/切向四阻抗与撤离动作。接下来按 Harness 启动独立 Method Reviewer，专门检查三项联合标准及“物理-only 是否确实胜过 learned/hybrid”的最强简单竞争方案论证。
+
+
+
+
+R12 method review开始工作
+
+R12 method review已完成
+
+独立评审未通过，主要不是“方法不够具体”，而是两处科学闭合仍不成立：第一，现有 Evidence 只能把 physical 路线排在最强简单候选，不能据此淘汰 learned/hybrid；第二，突变发生后到检测/重置前，收缩后的 \(\Theta_k\) 可能不再包含真实接触参数，却仍放松硬约束。评审同时确认 Problem fit 已通过、H‑CATI 已达到较高的论文级具体度。下一步我会按正式 revision：恢复 P/L/H 的诚实竞争，修复校准外状态机的硬约束权威，并保留 H‑CATI 作为优先但非唯一候选。
+
+
+
+
+已在 2s 内运行 Get-Content -Raw 'idea-stage/METHOD_DESIGN_REVIEW.json'; python -m arisctl allowed-actions impedance-control-landscape-e2e; python -m arisctl return-phase --help
+
+
+
+
+R12 method review已完成
+
+编辑了文件运行了命令
+
+
+R12 method review已完成
+
+运行了命令
+
+
+这次 revision 不会把 H‑CATI 推倒重来。科学上正确的收敛方式是：保留其完整实现作为 physical 分支，同时恢复 structured-learned 与 physical-residual 两个同样完整的分支；三者共用已经闭合的约束内生化总决策，并统一改为三态不确定性权威。这样 Human Selection 比较的是三套可实现论文方法，而不是一个被证据过早“定胜负”的实现。
+
+
+
+
+运行了命令
+
+
+上下文已自动压缩
+
+
+
+我会把这次提醒作为本轮收敛的硬标准：不能把“物理/学习/混合”或“某类在线优化器”留成抽象占位。接下来我先恢复并核验正式 method_design 状态，再把 R12 Reviewer 指出的未闭合点落实为可比较的完整候选；每条存活路线内部都要选定可实现的具体方法，并明确哪些只是经 WCET/实现约束选定、哪些才是论文的科学主张。最终只有独立 Reviewer 对三项联合标准全部通过，才返回 Human Selection。
+
+
+
+
+运行了命令
+
+
+R12 的关键结论已经核验：问题匹配通过，物理路线的论文级实现也基本成立；真正阻止通过的是把“最强简单候选”误写成了“唯一被证据约束的候选”，以及校准外突变时旧收缩集仍可能短暂拥有硬约束权限。现在我会保留物理路线的完整度，同时恢复物理、结构化学习、物理–残差混合三条完整竞争路线，并把三态不确定性权限写成所有路线共同且不可绕过的动作授权机制。
+
+
+
+
+编辑了文件读取文件运行了命令
+
+
+形式校验发现的不是 Method 内容缺陷，而是回退后跨域 Source 的三张 Evidence Card 未被重新纳入当前 formal context。它们正是 R13 声明的 VES、decision-focused optimization 与 calibration-discipline 来源；我会按 Controller 的 readopt_evidence 动作恢复这些只读证据绑定，再继续校验，不改变上游结论。
+
+
+
+
+编辑了文件读取文件运行了命令
+
+
+R13 已通过 Controller 的结构与证据绑定校验，新的正式 review request 已冻结。关键变化已经落地：三条路线都不再是“机制类别”，而有具体状态、输入输出、在线更新、硬约束、动作生成和失败条件；同时 P/L/H 的保留依据被写成互斥的选择区间。现在按 Harness 启动一名全新上下文的独立 Method Reviewer，只评审，不修改 artifacts 或状态。
+
+
+
+
+R13 method review开始工作
+
+已运行 python -m json.tool idea-stage/METHOD_DESIGN_PACKET.json > $null; Get-Item idea-stage/METHOD_DESIGN_PACKET.json,idea-stage/METHOD_DESIGN.md,idea-stage/METHOD_SYNTHESIS_COMPLETE_R13.md,idea-stage/METHOD_SELECTION_JUSTIFICATION_R13.md | Select-Object Name,Length; Get-Content idea-stage/METHOD_DESIGN.md -TotalCount 35
+
+
+
+
+R13 method review已完成
+
+独立 Reviewer 判定为需再修订，但剩余问题已收敛为三处，而且都不是上游冲突：第一，突变发生到被检测之间仍有一个潜在旧集授权窗口；第二，closest-prior 还需做成 3×4 的逐候选逐先例机制矩阵；第三，正式 killer 的 rival_id 与“set-MHE / multiple-model”文字不一致。下一轮我会把硬约束权限改为更强的不变量——收缩集永远不能放宽 full-envelope 的硬约束，只能进一步收紧；这样无需假定零延迟检测。随后补齐比较矩阵并修正正式 rival 绑定。
+
+
+
+
+编辑了文件读取文件运行了命令
+
+
+R14 已再次通过 Controller 校验。这里采取的是 Reviewer 给出的最强、也最诚实的闭合方式：任何在线收缩都不再获得“放宽硬约束”的权力，因此即使材料/接触在一次控制周期内突变且尚未被检测，full-envelope 仍然约束实际动作。代价是可能更保守，这被保留为真实技术风险，而不是靠不可证明的瞬时检测掩盖。现在进行第二次全新独立评审。
+
+
+
+
+R14 method review已完成
+
+第二次独立 Reviewer 已给出 PRINCIPLE_PACKET_READY：Problem fit、Method fit / necessity、Scientific strength 三项联合通过，且明确确认三条存活路线均已达到论文级、可实现颗粒度；R14 的 full-envelope 不变量、正式 set-MHE rival、逐候选逐先例矩阵均闭合。接下来只做 Controller 正式登记与返回 Human Selection，不进入 Principle Test Design。
+
+
+
+
+编辑了文件读取文件运行了命令
+
+
+上下文已自动压缩
+
+
+
+我先做最后一次只读核验：确认 live Controller 仍停在 principle_human_selection、正式 packet 哈希未漂移，以及提交后工作区只剩用户提供且未纳入版本控制的文献目录。不会再修改 Method 或触发任何 Gate。
+
+
+
+
+已在 1s 内运行 $packet = 'idea-stage/METHOD_DESIGN_PACKET.json'; git status --short; git log -1 --oneline; Get-FileHash -Algorithm SHA256 -LiteralPath $packet | Select-Object -ExpandProperty Hash; python -m arisctl allowed-actions --project-root .
+
+
+
+
+Git 与 packet 哈希已核验一致；刚才只读 Controller 命令的参数位置不符合当前 CLI 语法，我按本项目实际接口重新读取状态，不涉及状态变更。

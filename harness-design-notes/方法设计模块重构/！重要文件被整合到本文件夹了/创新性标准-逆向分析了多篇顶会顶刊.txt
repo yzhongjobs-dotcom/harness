@@ -1,0 +1,333 @@
+先逆向分析了资料库中的顶会顶刊论文，以下是创新性标准：
+
+
+
+
+
+
+
+
+对，你补充的这一点很重要。你真正采用的不是“纯学术意义上最严格的新颖性判定”，而是**以最终发表顶会顶刊为目标的创新性判定 + 合法的贡献包装策略**。
+
+我重新基于资料库中已经逆向过的工作，并补看了更多 **T-RO、IJRR、Science Robotics、RSS、RA-L** 的代表论文后，应该把你的标准定义成下面这样。
+
+## 1. 你的创新性标准
+
+你最终关心的不是：
+
+> “这个公式是不是世界第一次出现？”
+
+而是：
+
+$$
+\boxed{
+\text{这个工作能不能被专业、可信地组织成一个足以支撑目标 venue 的 contribution（贡献）}
+}
+$$
+
+因此需要同时看 **真实技术增量** 和 **可防守的贡献包装**。
+
+一个工作即使底层用了很多已有东西，甚至本质上是若干已有机制的组合，只要满足：
+
+$$
+\text{重要问题}
+\rightarrow
+\text{此前缺失的关键关系/能力}
+\rightarrow
+\text{合理组合或迁移}
+\rightarrow
+\text{新的完整方法}
+\rightarrow
+\text{明显新的能力}
+$$
+
+就完全可能被包装成强创新。
+
+资料库里我们之前总结的标准其实就是：
+
+$$
+\boxed{
+\text{important failure}
+\to
+\text{new relation / mechanism}
+\to
+\text{derived Method}
+\to
+\text{new capability}
+\to
+\text{evidence closure}
+}
+$$
+
+而不是逐模块检查 MPC、QP、sensitivity（敏感度）新不新。
+
+---
+
+# 2. 你说的“包装创新性”到底是什么
+
+这里的“包装”不是虚构 novelty（新颖性），而是**选择最有利、但仍然真实的 contribution granularity（贡献颗粒度）**。
+
+同一套技术，可以写成：
+
+> MPC + variable impedance（变阻抗）+ uncertainty（不确定性）+ sensitivity（敏感度）
+
+这样看起来就是拼模块。
+
+也可以写成：
+
+> **未来软接触过去只决定机器人要怎么走；现在它进一步决定机器人未来应该具有怎样的反馈力学。**
+
+如果后一句确实由公式和实验支持，那么它就是一个更大的科学对象：
+
+$$
+\boxed{
+\text{future contact}
+\rightarrow
+\text{feedback mechanics}
+}
+$$
+
+这就是合法的顶刊式包装。资料库里此前已经明确总结：顶刊包装核心是**选正确创新颗粒度、选正确 strongest-prior（最强已有工作）对比轴、把方法组织成因果链**。
+
+所以你说得对：
+
+$$
+\boxed{\text{Atomic technical novelty（原子技术新颖性）小 }\neq\text{ Paper-level novelty（论文级创新性）小}}
+$$
+
+---
+
+# 3. 多看一些已经发表的顶会顶刊，实际门槛没有“每个方法都全新”那么高
+
+我把代表工作拆成“实际新了多少”。
+
+| 论文                                                         | 底层方法是否大量已有                                                              | 真正被包装成的创新                                                                                                                                    |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Wijayarathne, T-RO 2023**                                | Hertz/contact、friction、DDP、ADMM、IK、MPC 都已有                              | **让 deformable contact physics（可变形接触物理）直接进入实时 force-motion planning（力-运动规划）**                                                                |
+| **Belvedere, T-RO 2025**                                   | sensitivity、tube、MPC 都已有                                                | 把 closed-loop sensitivity（闭环敏感度）变成在线 robust MPC（鲁棒MPC）的决策工具，并做到实时约束收紧                                                                        |
+| **Pollayil, T-RO 2023**                                    | impedance control、optimization 都已有                                      | 把“阻抗值怎么选”重新定义为在线 constrained impedance planning（受约束阻抗规划），解决扰动性能问题 ([爱丁堡大学研究][1])                                                             |
+| **DiffTune, T-RO 2024**                                    | AutoDiff（自动微分）、sensitivity propagation（敏感度传播）、gradient descent（梯度下降）均已有 | 把物理机器人 controller tuning（控制器调参）变成可微的闭环参数优化问题，特别解决真实系统梯度问题 ([arXiv][2])                                                                       |
+| **Fu, T-RO 2025**                                          | QP、VIC、force compensation、energy tank、shared control 都有前史               | 组合成 medical contact（医疗接触）下 active/passive compliance（主动/被动柔顺）统一系统，并以系统级无源性+实验支撑                                                              |
+| **Sparse Pose Graph Optimization, T-RO 2021**              | cycle basis（环基）甚至是计算机科学已有工具                                             | 把 PGO（位姿图优化）从 vertex space（顶点空间）重参数化到 cycle space（环空间），由此改变问题规模和收敛性能 ([IEEE Xplore][3])                                                      |
+| **Robust EPC, IJRR 2018**                                  | MPC、Gaussian uncertainty（高斯不确定性）、chance constraints（机会约束）均成熟            | 将 experience-driven controller（经验驱动控制器）与 uncertainty propagation（不确定性传播）结合，使受算力限制机器人仍可做 robust adaptive NMPC（鲁棒自适应NMPC） ([Sage Journals][4]) |
+| **Robust Contact-Rich Manipulation, IJRR 2026**            | robust control、policy approximation 等有大量先例                              | 重点变成 contact-rich manipulation（富接触操作）中无需显式在线适应却实现 robust motor adaptation（鲁棒运动适应）的完整能力                                                       |
+| **DeepMind Soccer, Science Robotics 2024**                 | deep RL、domain randomization（域随机化）、sim-to-real（仿真到现实）都不是新工具             | 贡献是这些机制产生了过去手工控制难以达到的**完整动态 humanoid capability（人形机器人动态能力）**：起身、走、转、踢、策略切换以及零样本实机迁移 ([PubMed][5])                                            |
+| **Autonomous Laparoscopic Surgery, Science Robotics 2022** | 视觉、规划、机器人控制等很多组件都有先例                                                    | 真正贡献是把它们闭合成此前没有的**自主完成复杂软组织吻合任务的系统能力** ([PubMed Central (PMC)][6])                                                                           |
+| **Hammoud, RA-L 2021**                                     | optimal control、risk-sensitive control 都已有                              | 把 contact uncertainty（接触不确定性）与 anticipatory impedance schedule（前瞻阻抗调度）联系起来，因此反馈增益会在接触发生前主动改变                                                 |
+| **RSS 2026 distributionally robust contact manipulation**  | robust control + variational inference（变分推断）都有来源                        | 将更丰富的 task-relevant uncertainty（任务相关不确定性）嵌入可计算的 model-based contact controller（模型富接触控制器），形成新能力 ([Robotics Proceedings][7])                   |
+
+逆向这些论文以后，一个非常明确的规律是：
+
+$$
+\boxed{
+\text{顶刊经常创新的不是“工具”，而是工具获得了一个以前没有的控制角色。}
+}
+$$
+
+---
+
+# 4. “组合型创新”什么时候真的能被包装得很强
+
+这对 R15 最重要。
+
+简单拼：
+
+$$
+A+B+C
+$$
+
+通常很弱。
+
+但是如果能写成：
+
+$$
+\boxed{
+\text{过去缺失一个关系 }X\to Y
+}
+$$
+
+而：
+
+* A 提供 \(X\)；
+* B 建立 \(X\to Y\)；
+* C 让它实时可解；
+* D 保证最终可执行；
+
+那么论文**不应该包装成 A+B+C+D**，而应该包装成：
+
+$$
+\boxed{X\rightarrow Y\text{ 这一新能力}}
+$$
+
+这是很多高水平系统/控制论文实际采用的贡献组织方式。
+
+Fu T-RO 就是典型例子：QP、variable impedance（变阻抗）、energy tank（能量罐）、shared control（共享控制）本身都不新，但新的 system-level interconnection（系统级互联）+ 理论边界 + 强实验，仍构成 T-RO 工作。
+
+所以你的标准不应是：
+
+> “是不是拼的？”
+
+而应该是：
+
+> **“拼完以后是不是产生了一个不可约的新关系/新能力，并且能否把它专业地定义为一个完整贡献单元？”**
+
+---
+
+# 5. 但包装存在红线
+
+我们追求的是**最大化可防守的创新强度**，不是最大化夸张程度。
+
+可以做：
+
+* 放大正确的 scientific granularity（科学颗粒度）；
+* 从模块级上升到 mechanism-level（机制级）；
+* 从机制级上升到 capability-level（能力级）；
+* 给新关系一个清晰名字；
+* 重新组织 problem statement（问题表述）；
+* 用最有利但真实的 strongest-prior comparison axis（最强已有工作比较轴）；
+* 将 supporting modules（支撑模块）隐藏到实现层，不让文章看起来像堆砌。
+
+不能做：
+
+* 明知 strongest prior 已做同一件事还写“首次”；
+* 把场景替换伪装成机制创新；
+* 只对弱 baseline；
+* 用复杂度包装创新；
+* 用一个新 solver（求解器）冒充科学贡献。
+
+这也是我们之前 acceptance audit（验收审计）里明确禁止的 narrative inflation（叙事膨胀）和 prior cherry-picking（已有工作挑选偏差）。
+
+---
+
+# 6. 不同 venue，究竟需要多大的创新
+
+这点以后评估 R15 时必须区分。
+
+### Science Robotics（科学机器人学）
+
+要求通常最高的不是“数学必须最新”，而是：
+
+$$
+\boxed{
+\text{重要问题}
++
+\text{明显 capability leap（能力跃迁）}
++
+\text{广泛意义}
++
+\text{极强实机证据}
+}
+$$
+
+DeepMind 足球就是典型：deep RL 并不是新发明，但最终机器人行为能力明显跨了一档，因此足以成为 Science Robotics 工作。([DeepMind][8])
+
+所以 **Science Robotics 可以接受原子算法创新不极强，但不能接受 capability story（能力故事）弱。**
+
+---
+
+### IJRR（国际机器人研究期刊）
+
+更偏：
+
+$$
+\boxed{
+\text{深问题}
++
+\text{一般性机制}
++
+\text{完整数学/算法}
++
+\text{充分实验}
+}
+$$
+
+通常比“解决一个窄应用问题”要求更高，最好能形成对机器人领域具有一般意义的方法或理解。
+
+---
+
+### T-RO（IEEE机器人学汇刊）
+
+典型可接受：
+
+$$
+\boxed{
+\text{清晰重要 failure}
++
+\text{非平凡 Method delta}
++
+\text{理论闭合}
++
+\text{实时/实机证明}
+}
+$$
+
+**不要求每个数学工具新。**
+
+T-RO 2023、Pollayil、Belvedere、DiffTune 都很好地证明了这一点。
+
+---
+
+### RSS / ICRA 等顶会
+
+一条**非常清楚的新关系或新算法点**，配强实验证据，就可能足够。
+
+篇幅更短，不一定要求把整个领域问题做成 IJRR 那么完整。
+
+---
+
+### RA-L / T-Mech 等
+
+通常可以接受更窄的 technical delta（技术增量）：
+
+* 一个新的优化 formulation（问题形式）；
+* 一个合理的跨领域方法迁移；
+* 一个较强的系统集成；
+* 一个明确的性能/实时能力提升。
+
+所以同一个 R15，可以根据最终实验结果决定到底冲：
+
+$$
+\text{Science Robotics/IJRR}
+\quad\text{or}\quad
+\text{T-RO}
+\quad\text{or}\quad
+\text{ICRA/RSS/RA-L}.
+$$
+
+---
+
+# 7. 因此，今后我判断 R15 创新性时应该用的完整标准
+
+不是简单问“新不新”，而是依次问：
+
+$$
+\boxed{
+\begin{array}{l}
+1.\ \text{真实技术 delta 到底有多大？}\\
+2.\ \text{strongest prior 已经覆盖到哪里？}\\
+3.\ \text{能否把若干已有模块重新定义成一个新的科学关系？}\\
+4.\ \text{这个关系是否产生新的 capability boundary（能力边界）？}\\
+5.\ \text{有没有更简单的方法同样做到？}\\
+6.\ \text{怎样选择贡献颗粒度，使真实 delta 的论文级价值最大化？}\\
+7.\ \text{这种包装在目标 venue 上是否足够可信？}\\
+8.\ \text{最终证据能否支撑包装，而不会被 reviewer 一眼拆穿？}
+\end{array}
+}
+$$
+
+最终目标不是追求“理论上最纯的新发明”，而是：
+
+$$
+\boxed{\textbf{在不虚假、不失专业性的前提下，把真实工作组织成最强、最可防守、最适合顶会顶刊发表的贡献。}}
+$$
+
+这才是后续评价 **R15 v4.2** 时我应该采用的标准。
+
+[1]: https://www.research.ed.ac.uk/en/publications/choosing-stiffness-and-damping-for-optimal-impedance-planning/ "https://www.research.ed.ac.uk/en/publications/choosing-stiffness-and-damping-for-optimal-impedance-planning/"
+[2]: https://arxiv.org/abs/2209.10021 "https://arxiv.org/abs/2209.10021"
+[3]: https://ieeexplore.ieee.org/document/9346012/ "https://ieeexplore.ieee.org/document/9346012/"
+[4]: https://journals.sagepub.com/doi/10.1177/0278364918793717 "https://journals.sagepub.com/doi/10.1177/0278364918793717"
+[5]: https://pubmed.ncbi.nlm.nih.gov/38598610/ "https://pubmed.ncbi.nlm.nih.gov/38598610/"
+[6]: https://pmc.ncbi.nlm.nih.gov/articles/PMC8992572/ "https://pmc.ncbi.nlm.nih.gov/articles/PMC8992572/"
+[7]: https://www.roboticsproceedings.org/rss22/p061.html "https://www.roboticsproceedings.org/rss22/p061.html"
+[8]: https://deepmind.google/research/publications/31284/ "https://deepmind.google/research/publications/31284/"

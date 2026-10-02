@@ -1,0 +1,957 @@
+继续。第一轮逆向分析已经得到几个足以**修改我们原先分析框架**的结论。这里先不冻结成 Harness；handoff 明确要求先通过多案例与近失败对照完成跨案例因果归纳，再决定哪些假设能升级为硬标准。
+
+## 一、目前选出的第一批核心案例
+
+| 案例                                    | 真正的 Failure / Root Cause                          | 借来的 Source Mechanism                                                  | 最终 Method 的核心结构变化                                               |
+| ------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------- |
+| **IBC, CoRL 2021**                    | 显式 \(a=F(o)\) 难以自然表达多值、强不连续策略                     | Energy-Based implicit representation                                  | \(a=F(o)\rightarrow a=\arg\min_aE(o,a)\)                        |
+| **Transporter Networks, CoRL 2020**   | 端到端视觉操控丢失有价值的空间结构；object-centric 表示又限制泛化          | visual tracking / retrieval 中的 template matching + cross-correlation  | placement prediction → picked-region 与全场景的空间相关搜索                |
+| **ACT, RSS 2023**                     | 长时高精度 BC 中误差逐步累积，effective horizon 太长             | 心理学中的 action chunking                                                 | 单步 action → \(k\)-step action chunk，再闭环重叠融合                     |
+| **BeT, NeurIPS 2022**                 | 单峰连续回归不能表达多模态人类行为                                 | Transformer token modeling + detection 中 coarse class/residual offset | continuous regression → action mode token + continuous residual |
+| **Diffusion Policy, RSS 2023 / IJRR** | action distribution 多模态、高维、时序相关；已有显式/EBM 建模各有瓶颈   | DDPM / score-based generation + trajectory diffusion                  | policy → conditional action-sequence denoising process          |
+| **Steering with EBM**，近失败对照           | 理论上可能多模态，但实际 steering-only road following 中该现象不够强 | IBC / EBM                                                             | 成功迁入表示，却没有产生显著驾驶收益                                              |
+
+这几篇已经足以得到非常重要的第一批规律。
+
+---
+
+# 二、案例 1：IBC——最纯粹的“根因决定表示形式”
+
+IBC 的出发点不是“EBM 很强，所以放进机器人”。
+
+它重新检查了 BC 的一个更底层假设：
+
+$$
+o\xrightarrow{F_\theta}a
+$$
+
+意味着策略必须由一个**显式连续函数**表示。
+
+但机器人示范中可能存在：
+
+$$
+o\rightarrow \{a_1,a_2,\ldots\}
+$$
+
+甚至随着 \(o\) 很小变化，最优 action 会发生离散跳变。因此问题不是网络容量不足，而是**函数表示形式与真实映射结构不匹配**。IBC 将策略改写为：
+
+$$
+E_\theta(o,a)
+$$
+
+并通过
+
+$$
+a^*=\arg\min_aE_\theta(o,a)
+$$
+
+求动作。于是被改变的不是“backbone”，而是**policy relation 本身的数学类型**。论文专门论证 implicit models 对 discontinuous、multi-valued mappings 的表示优势。([Google Research][1])
+
+所以它的 Method Genesis 可以恢复为：
+
+$$
+\text{BC failure}
+$$
+
+$$
+\downarrow
+$$
+
+$$
+\text{真实 policy relation 并非良好的单值连续函数}
+$$
+
+$$
+\downarrow
+$$
+
+$$
+\text{需要一种能直接表达 compatibility landscape 的表示}
+$$
+
+$$
+\downarrow
+$$
+
+$$
+\text{EBM 的 energy landscape}
+$$
+
+$$
+\downarrow
+$$
+
+$$
+\boxed{a^*=\arg\min_a E(o,a)}
+$$
+
+这是一个非常重要的标尺：
+
+> **顶会级 Method Seed 完全不必复杂，但必须改变一个真正限制现有方法的结构关系。**
+
+IBC 核心创新甚至可以写成一行公式，但这一行改变的是问题的表示机制，而不是增加一个 loss。
+
+---
+
+# 三、案例 2：Transporter——非常典型的“隐藏式跨领域机制迁移”
+
+Transporter Networks 更符合你最初希望寻找的案例。
+
+作者首先发现：
+
+端到端 pixel→action：
+
+$$
+\text{sample inefficient}
+$$
+
+加入 object-centric representation 虽然改善 sample efficiency，却又引入：
+
+$$
+\text{known objects / keypoints / poses / instance assumptions}
+$$
+
+从而难以处理 unseen object、deformable object、piles 等。
+
+因此作者提出的问题不是：
+
+> 应该换什么网络？
+
+而是：
+
+> **有没有一种结构，在不显式定义 object 的情况下，仍然保留 manipulation 中天然存在的 spatial structure？**
+
+论文随后把 manipulation 重新表述为：
+
+$$
+\text{spatial displacement}
+$$
+
+然后对 pick-conditioned placing 使用：
+
+$$
+Q_{\rm place}(\tau)
+=
+\psi(o[T_{\rm pick}]) * \phi(o)[\tau]
+$$
+
+即 picked patch 作为 template，在整幅 scene feature 中做 cross-correlation，找最匹配的 displacement。
+
+关键证据是作者明确指出，这一 operation 与 **visual tracking 中 exemplar/search 的搜索机制以及 retrieval 中 query/key 匹配相似**。
+
+它的真正迁移关系因此是：
+
+$$
+\text{Visual tracking:}
+\quad
+\text{template}\rightarrow\text{search region}
+$$
+
+映射成：
+
+$$
+\text{Manipulation:}
+\quad
+\text{picked region}\rightarrow\text{possible placement region}
+$$
+
+真正被迁移的是：
+
+> **通过 feature correlation 在保持空间等变结构的条件下寻找相对 displacement。**
+
+而不是“用了 Siamese network”。
+
+目标域又迫使它发生进一步变化：
+
+$$
+\text{image matching score}
+\rightarrow
+\text{robot action-value over placement pose}
+$$
+
+还必须处理 rotation、SE(2)/SE(3)、6DoF 等机器人特有约束。([CoRL][2])
+
+所以这个案例极其符合 handoff 中强调的：
+
+$$
+Source\ Mechanism+Target\ Constraints
+\rightarrow New\ Method
+$$
+
+而且迁移完成以后，即使完全删除“visual tracking”这个故事：
+
+$$
+\text{空间结构丢失}
+\rightarrow
+\text{需要直接对 relative spatial displacement 建模}
+\rightarrow
+\text{picked region 与 candidate placement 做 equivariant matching}
+$$
+
+仍然完全自然。
+
+这就是 **Natural-Derivation Test 的强 PASS**。handoff 对这一测试的定义正是要求删除源领域故事后，最终方法仍能从目标 Root Cause 自然推出。
+
+---
+
+# 四、ACT 暴露了我们原先一个过强的假设
+
+这是目前最重要的新发现。
+
+ACT 的 Target Failure 很明确：
+
+$$
+\text{small BC error}
+\rightarrow
+\text{state distribution drift}
+\rightarrow
+\text{future prediction increasingly unreliable}
+$$
+
+即长 horizon 上的 compounding error。RSS 官方摘要直接将 ACT 描述为通过预测 action chunks **缩短 effective horizon** 来解决这一问题。([Robotics Proceedings][3])
+
+它借鉴的 action chunking 则来自心理学/认知科学：
+
+> 将连续动作组合成一个执行单元，从而降低 policy / memory complexity，提高执行效率。([BibBase][4])
+
+注意：
+
+### Source Root Cause
+
+更接近：
+
+$$
+\text{cognitive / memory complexity}
+$$
+
+### Target Root Cause
+
+却是：
+
+$$
+\text{sequential decision horizon causes compounding error}
+$$
+
+二者**并不严格同构**。
+
+但 source intervention：
+
+$$
+k\text{ actions}
+\rightarrow
+1\text{ decision unit}
+$$
+
+恰好改变了 Target Root Cause 中真正关键的结构变量：
+
+$$
+H_{\rm effective}
+$$
+
+于是：
+
+$$
+H
+\rightarrow
+H/k
+$$
+
+从而降低长时 sequential error propagation。
+
+### 这意味着原先这个候选标准：
+
+$$
+Source\ Root\ Cause
+\cong
+Target\ Root\ Cause
+$$
+
+**太强，不能作为必要条件。**
+
+真正应该研究的对象是：
+
+$$
+\boxed{
+Source\ Intervention
+\leftrightarrow
+Target\ Required\ Structural\ Change
+}
+$$
+
+也就是说，源问题为什么产生该机制，可以和目标问题不同。
+
+真正必须一致的是：
+
+> **该机制到底改变了哪个 causal / computational variable，而 Target RCA 是否恰恰要求改变同一个变量。**
+
+这比“结构同构”更准确。
+
+---
+
+# 五、因此应把“同构”正式下沉一层
+
+可以暂时把迁移逻辑形式化成：
+
+Target：
+
+$$
+Failure_t
+\rightarrow
+RootCause_t
+\rightarrow
+\boxed{V_t:v_0\rightarrow v_1}
+$$
+
+其中 \(V_t\) 是必须改变的结构变量。
+
+Source：
+
+$$
+Mechanism_s:
+\boxed{V_s:u_0\rightarrow u_1}
+\rightarrow Outcome_s
+$$
+
+需要存在一个映射：
+
+$$
+\phi(V_s)=V_t
+$$
+
+并且：
+
+$$
+\phi(u_0\rightarrow u_1)
+=
+v_0\rightarrow v_1
+$$
+
+换句话说：
+
+> **真正需要同构的是 intervention structure，不一定是两个领域原来的 problem story。**
+
+这也解释了为什么很多优秀跨领域迁移看起来非常自然：
+
+研究者不是在找：
+
+> “哪个领域也有类似机器人问题？”
+
+而是在找：
+
+> **“哪个领域已经有机制成功改变了我这里必须改变的这个变量？”**
+
+这是 Auto Research 的 Source Search 应该学会的搜索逻辑。
+
+---
+
+# 六、ACT 还揭示了第二个规律：方法生成不是一条直线，而是一个 Causal Repair DAG
+
+如果只看：
+
+$$
+RCA\rightarrow Source\ Mechanism\rightarrow Method
+$$
+
+仍然太简单。
+
+Action chunking 迁入机器人以后会马上产生新问题：
+
+如果一次预测 \(k\) 个动作然后全部执行：
+
+$$
+o_t
+\rightarrow
+a_{t:t+k}
+$$
+
+那么接下来 \(k\) 步没有新观测进入决策。
+
+对于机器人而言就会产生：
+
+$$
+\text{reduced closed-loop responsiveness}
+$$
+
+以及 chunk 切换造成的：
+
+$$
+\text{jerky behavior}
+$$
+
+所以 ACT 进一步采用**每个 timestep 都重新预测一个重叠 action chunk，再通过 temporal ensemble 融合多个预测**。
+
+这不是“又加一个模块”。
+
+其逻辑是：
+
+$$
+\text{Action Chunking}
+$$
+
+$$
+\downarrow
+$$
+
+$$
+\text{Target-domain incompatibility:
+closed-loop feedback / smoothness}
+$$
+
+$$
+\downarrow
+$$
+
+$$
+\text{Temporal Ensemble}
+$$
+
+同时 human demonstration 存在 non-stationarity / multimodality，因此又需要 generative modeling，于是引入 CVAE；action chunk 本身是 sequence，因此 Transformer 成为适配的 sequence model。([arXiv][5])
+
+因此真实 Method Genesis 更接近：
+
+$$
+\boxed{
+RCA
+\rightarrow Core\ Intervention
+\rightarrow New\ incompatibility
+\rightarrow Repair
+\rightarrow New\ incompatibility
+\rightarrow Repair
+}
+$$
+
+而不是一条简单链。
+
+---
+
+# 七、BeT 把这个规律体现得更加明显
+
+BeT 面对的是 human behavior 中的 multimodality。
+
+直接 continuous regression：
+
+$$
+o\rightarrow a
+$$
+
+容易平均多个 mode。
+
+Transformer 擅长：
+
+$$
+context\rightarrow discrete\ token
+$$
+
+于是第一层迁移是：
+
+$$
+continuous\ action
+\rightarrow
+discrete\ action\ mode
+$$
+
+但这马上产生一个新的问题：
+
+$$
+\text{discretization}
+\rightarrow
+\text{loss of continuous action precision}
+$$
+
+于是 BeT 又借用了 object detection 中：
+
+$$
+\text{coarse localization}
++
+\text{residual offset}
+$$
+
+的思想：
+
+$$
+a
+=
+c_k+\Delta a
+$$
+
+即先预测 action cluster，再预测该 cluster 内 residual correction。论文明确说明 continuous action correction 受到 object detection offset prediction 的启发。([NeurIPS 会议录][6])
+
+这说明：
+
+> **顶级方法允许多次机制迁移，但每一次迁移都必须有明确的 causal parent。**
+
+因此可以产生一个非常强的候选判据：
+
+$$
+\boxed{
+\text{No-Orphan-Module Principle}
+}
+$$
+
+任何组件 \(M_i\) 必须能够向上追溯到：
+
+$$
+M_i
+\leftarrow
+\begin{cases}
+Primary\ Root\ Cause\\
+Target\ Constraint\\
+Incompatibility\ introduced\ by\ earlier\ design
+\end{cases}
+$$
+
+如果找不到 parent：
+
+$$
+\boxed{Orphan\ Module}
+$$
+
+它极可能只是：
+
+* 指标优化组件；
+* 流行模块拼装；
+* speculative improvement；
+* reviewer 很容易删除而不影响核心 scientific story 的东西。
+
+这比模糊地要求“不要堆模块”强得多，因为它可以被机器检查。
+
+---
+
+# 八、Diffusion Policy 同样符合这个结构
+
+Diffusion Policy 并不是：
+
+$$
+DDPM+\text{robotics}
+$$
+
+而是首先改变 policy 的表示：
+
+$$
+\pi(a|o)
+$$
+
+变为一个 conditional denoising process，对 action distribution 的 score field 建模。
+
+这天然提供：
+
+* multimodal distribution；
+* high-dimensional outputs；
+* 相对稳定的 generative training。
+
+论文进一步为了 physical visuomotor policy 加入 receding-horizon control、visual conditioning 和 time-series diffusion transformer。([Robotics Proceedings][7])
+
+更重要的是，IJRR 扩展版明确记录了一些**目标域迫使源结构发生变化**的证据：
+
+原 trajectory diffusion 会同时生成 observation/state 与 action，而 Diffusion Policy 改成只预测 action trajectory；另外 CNN temporal backbone 对高频 action 有 oversmoothing，因此又提出 time-series diffusion transformer。([Sage Journals][8])
+
+所以它的 genealogy 更准确地写成：
+
+$$
+DDPM
+\rightarrow
+trajectory\ diffusion
+\rightarrow
+conditional\ action\ diffusion
+$$
+
+而不是：
+
+$$
+DDPM\rightarrow robot
+$$
+
+这里仍然存在同一个模式：
+
+$$
+Source\ Capability
++
+Target\ Constraints
+\rightarrow
+Structural\ Transformation
+$$
+
+---
+
+# 九、负对照已经说明：强 Source Mechanism 完全不够
+
+**Controlling Steering with Energy-Based Models** 是一个非常有价值的近失败案例。
+
+它把 IBC/EBM 的优势迁到真实自动驾驶 steering。
+
+理论上逻辑似乎成立：
+
+$$
+\text{driving decisions can be multimodal}
+$$
+
+因此：
+
+$$
+EBM
+\rightarrow
+better\ multimodality
+$$
+
+实验确实发现 EBM 稍微更能表示 multimodality。
+
+但：
+
+* safety-driver intervention 没明显改善；
+* steering jerk 反而更高；
+* multimodality 优势没有转化为更好的实际 driving；
+* 作者最终认为 steering-only road-following 中真正存在的 multimodal situation 太少。([arXiv][9])
+
+这个结果极其关键。
+
+它说明：
+
+$$
+\text{Source intervention matches a theoretically possible target property}
+$$
+
+远远不够。
+
+必须是：
+
+$$
+\boxed{
+Target\ Root\ Cause\ is\ actually\ active
+}
+$$
+
+而且最好是：
+
+$$
+\boxed{
+performance\text{-}limiting
+}
+$$
+
+否则：
+
+$$
+\text{correct mechanism}
++
+\text{wrong bottleneck}
+=
+\text{weak research}
+$$
+
+---
+
+# 十、因此第一轮已经可以淘汰 4 个错误科研标准
+
+### 1. “Source 与 Target 的问题必须长得一样”
+
+错误。
+
+ACT 已经反例证明：
+
+$$
+Source\ RootCause\neq Target\ RootCause
+$$
+
+仍然可能形成极强迁移。
+
+应关注：
+
+$$
+Source\ Intervention
+\leftrightarrow
+Target\ Required\ Change
+$$
+
+---
+
+### 2. “跨领域方法越新越好”
+
+错误。
+
+EBM、cross-correlation、chunking、Transformer、DDPM 都不是目标论文原创出来的 primitive。
+
+甚至官方顶会审稿标准也明确允许**已有技术的新颖组合**；关键是为什么组合、产生了什么新的知识或方法结构。NeurIPS 2026 明确写到 originality 并不要求完全新方法，novel combination 只要推理充分也可构成 originality；CoRL 的标准也明确说 well-known techniques 的 novel combination 可以有价值。([NeurIPS][10])
+
+因此：
+
+$$
+Source\ Primitive\ Originality
+$$
+
+不是我们真正应该优化的量。
+
+---
+
+### 3. “非平凡改造 = 加很多新模块”
+
+错误。
+
+IBC 的核心改造极其简洁：
+
+$$
+F(o)
+\rightarrow
+E(o,a)
+$$
+
+但 scientific delta 很大。
+
+真正应该看的是：
+
+$$
+\boxed{
+Mechanism\ Delta
+}
+$$
+
+是否改变了目标问题中的关键结构。
+
+---
+
+### 4. “模块越多，Method 越强”
+
+错误。
+
+ACT、BeT、Diffusion Policy 虽然都有多个组件，但组件并不是并列堆进去的，而是具有：
+
+$$
+failure
+\rightarrow intervention
+\rightarrow incompatibility
+\rightarrow repair
+$$
+
+的因果父子关系。
+
+真正标准应是：
+
+$$
+\text{number of unjustified modules}=0
+$$
+
+而不是：
+
+$$
+\text{number of modules}\uparrow
+$$
+
+---
+
+# 十一、第一轮得到的更准确 Method Genesis 模型
+
+因此 handoff 中原先的线性表达：
+
+$$
+Failure
+\rightarrow RCA
+\rightarrow RequiredChange
+\rightarrow SourceMechanism
+\rightarrow Isomorphism
+\rightarrow Transformation
+\rightarrow Method
+$$
+
+我认为经过案例验证后，应暂时升级为下面这个**研究假说**：
+
+$$
+\boxed{
+Failure
+\rightarrow
+Root\ Cause
+\rightarrow
+Causal\ Structural\ Variable
+\rightarrow
+Required\ Intervention
+}
+$$
+
+然后进行机制搜索：
+
+$$
+\boxed{
+Source\ Mechanism
+\rightarrow
+Source\ Intervention
+\rightarrow
+Changed\ Structural\ Variable
+}
+$$
+
+两者通过：
+
+$$
+\boxed{
+Intervention\text{-}Level\ Structural\ Mapping
+}
+$$
+
+连接。
+
+之后不是直接产生 Final Method，而是：
+
+$$
+Core\ Transfer
+\rightarrow
+Target\ Constraint\ Collision
+\rightarrow
+Required\ Transformation
+$$
+
+并可以递归：
+
+$$
+Transformation_1
+\rightarrow
+New\ Bottleneck
+\rightarrow
+Transformation_2
+$$
+
+最终才得到：
+
+$$
+\boxed{Strong\ Method\ Seed}
+$$
+
+这比原先单纯的“结构同构”精确得多。
+
+---
+
+# 十二、一个顶会顶刊级 Method Seed 到底“长什么样”，现在也开始清楚了
+
+五篇强案例有一个高度一致的特点：
+
+**Method Seed 在实验之前就已经可以写成一个非常具体的 before→after mechanism delta。**
+
+例如：
+
+$$
+\textbf{IBC:}\qquad
+a=F(o)
+\rightarrow
+a=\arg\min_aE(o,a)
+$$
+
+$$
+\textbf{Transporter:}\qquad
+\text{direct placement prediction}
+\rightarrow
+\text{pick-conditioned spatial correlation}
+$$
+
+$$
+\textbf{ACT:}\qquad
+\pi(a_t|o_t)
+\rightarrow
+\pi(a_{t:t+k}|o_t)
+$$
+
+$$
+\textbf{BeT:}\qquad
+a
+\rightarrow
+(c_k,\Delta a)
+$$
+
+$$
+\textbf{Diffusion Policy:}\qquad
+\pi(a|o)
+\rightarrow
+\text{conditional denoising process over action sequences}
+$$
+
+所以当前候选方法为什么“一眼不像顶刊”，以后不能再用“创新性低”这种模糊语言判断。
+
+真正应该问：
+
+> **你到底改变了什么 computational / causal relation？**
+
+如果 Method Seed 最核心的内容只能写成：
+
+> “结合 A、B、C，提高 robustness / uncertainty awareness / adaptability”
+
+而不能写成：
+
+$$
+\boxed{
+Existing\ Mechanism
+\rightarrow
+New\ Mechanism
+}
+$$
+
+那么它大概率根本还没有形成真正的方法发明。
+
+---
+
+# 十三、目前可以形成 9 个“待继续验证”的候选标准
+
+注意：**这些还不是 Harness 最终规则。**
+
+1. **Root-Cause Activation**：根因必须有证据表明真实存在，而且实际限制性能；不能只理论上“可能存在”。
+
+2. **Mechanism Delta**：Method Seed 必须能明确写出一个关键结构的 before→after，而不是算法名或模块集合。
+
+3. **Required-Intervention Extraction**：RCA 后必须先独立推导“哪个结构变量必须怎样变化”，再搜索算法。
+
+4. **Intervention Alignment**：Source Mechanism 必须已知能改变与 Target Required Change 对应的结构变量；不要求两个领域原始 Root Cause 完全一致。
+
+5. **Assumption–Constraint Collision**：迁移以后必须显式检查 source mechanism 的成立假设与 target constraints 是否冲突。
+
+6. **Transformation Necessity**：每个目标域改造必须对应一个具体 incompatibility，而不是为了显得复杂。
+
+7. **No-Orphan-Module**：每个最终模块都必须有 causal parent；无 parent 的组件原则上删除。
+
+8. **Target Intervention Novelty**：Novelty Search 应搜索目标领域是否已经实现了**等价因果干预**，而不能只搜索同名算法。handoff 本身已经要求 novelty 检查落在相同 causal intervention 上。
+
+9. **Natural Derivation**：删除 Source Domain 故事以后，仅凭 Target Failure → RCA → Required Change → Target Constraints，仍能推导 Final Method。
+
+目前证据最强的是 **2、4、6、7**；而 1 由 EBM steering 负对照强烈支持。其余仍需要更多负案例和反事实验证。
+
+---
+
+## 十四、下一轮最需要补的不是更多“漂亮成功案例”，而是三类判别案例
+
+按照 handoff 的 Cross-Case Causal Induction 要求，真正下一步应该专门寻找：
+
+**A. 真 Intervention Alignment，但几乎直接照搬 Source Method 的案例。**
+用于判断“Nontrivial Transformation”究竟是不是必要条件，还是某些场景下直接迁移也能达到顶刊级。
+
+**B. Intervention Alignment 正确，但 Target Domain 已经有人做过相同干预的案例。**
+用于验证 Target-domain novelty 是否是独立硬门槛。
+
+**C. Source/Target Root Cause 明显不同，但 Intervention Variable 高度一致的更多成功案例。**
+用于进一步确认 ACT 不是特例，并最终决定是否把原来的“Root-Cause Isomorphism”正式替换成“Intervention-Level Isomorphism”。
+
+同时，负对照不应只靠弱论文。**顶级论文自己的 ablation / naive variant 是更干净的 counterfactual control**：ACT 的 naive chunking、BeT 的 no-offset、Diffusion Policy 的不同 backbone/trajectory formulation，都能直接告诉我们“哪个目标域改造实际上是必要的”。
+
+这一轮之后，才适合把这些候选规律压成真正的：
+
+$$
+Input
+\rightarrow Cognitive\ Operation
+\rightarrow Required\ Evidence
+\rightarrow PASS/FAIL
+\rightarrow Recovery
+$$
+
+也就是 handoff 要求的机器可执行标准。
+
+**当前最重要的结论可以压成一句话：**
+
+$$
+\boxed{
+\text{顶刊级方法迁移的核心不是“找到相似问题的方法”，而是从 Root Cause 推出必须改变的结构变量，找到能够干预同一变量的强源机制，再让目标域约束迫使它重新长成一个新的、因果上不可删减的 Method。}
+}
+$$
+
+[1]: https://research.google/pubs/implicit-behavioral-cloning/?utm_source=chatgpt.com "Implicit Behavioral Cloning"
+[2]: https://corlconf.github.io/corl2020/paper_153/?utm_source=chatgpt.com "Transporter Networks: Rearranging the Visual World for Robotic Manipulation - CoRL 2020 Papers"
+[3]: https://roboticsproceedings.org/rss19/p016.html?utm_source=chatgpt.com "Robotics: Science and Systems XIX - Online Proceedings"
+[4]: https://bibbase.org/network/publication/lai-huang-gershman-actionchunkingaspolicycompression-2022?utm_source=chatgpt.com "Action chunking as policy compression"
+[5]: https://arxiv.org/abs/2304.13705?utm_source=chatgpt.com "Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware"
+[6]: https://proceedings.neurips.cc/paper_files/paper/2022/hash/90d17e882adbdda42349db6f50123817-Abstract-Conference.html?utm_source=chatgpt.com "Behavior Transformers: Cloning $k$ modes with one stone"
+[7]: https://roboticsproceedings.org/rss19/p026.html?utm_source=chatgpt.com "Robotics: Science and Systems XIX - Online Proceedings"
+[8]: https://journals.sagepub.com/doi/10.1177/02783649241273668?utm_source=chatgpt.com "Diffusion policy: Visuomotor policy learning via action diffusion - Cheng Chi, Zhenjia Xu, Siyuan Feng, Eric Cousineau, Yilun Du, Benjamin Burchfiel, Russ Tedrake, Shuran Song, 2025"
+[9]: https://arxiv.org/abs/2301.12264?utm_source=chatgpt.com "Controlling Steering with Energy-Based Models"
+[10]: https://neurips.cc/Conferences/2026/ReviewerGuidelines?utm_source=chatgpt.com "2026 Reviewer Guidelines"

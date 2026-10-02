@@ -1,0 +1,472 @@
+我实际拿这套流程跑了一次“固定阻抗 → 残余问题 → 跨领域迁移”的 dry run（干运行）。结论是：
+
+> **最后收敛后的科研流程，核心上已经具备设计出顶会顶刊级方法的能力；尤其你最关心的两点——RCA（根因分析）和跨领域 Problem–Intervention Pair（问题—干预对）迁移——逻辑是通的。**
+>
+> **但当前磁盘上的《修改方案_最终冻结验收版》还不是最终可实施版**：它仍残留已经被我们后来否定的 pre-RCA（根因分析前）Necessity Test（必要性主动测试）体系，必须先删掉再实施。文件目前仍明确写着 `NECESSITY_TEST_EVIDENCE.jsonl` 和 register/handoff/result（注册/交接/结果）生命周期。 
+
+## 我怎么测试的
+
+### 1. 从你说的“固定阻抗控制失败”开始
+
+假设：
+
+> 固定 Impedance Control（阻抗控制）在一种软材料上调好了，但换材料、接触历史、厚度或局部几何后，出现力过冲、接触不稳或者扫描质量下降。
+
+如果 Harness 直接得出：
+
+> “根因 = 固定阻抗不能适应环境，所以设计 Variable Impedance Control（可变阻抗控制）。”
+
+**这其实不够好，甚至不能作为顶会顶刊新方法。**
+
+因为现实里已经有很多方法这么做。例如 ICRA 2024 已经通过在线估计软组织粘弹性参数并实时优化阻抗参数；2025 年的工作也已经把在线环境参数估计与 Model Predictive Variable Impedance Control（模型预测可变阻抗控制）结合起来。([Iris][1])
+
+所以正确 Harness 必须先说：
+
+> **“固定增益”只是表层问题，已有 Variable Impedance Control（可变阻抗控制）属于 Simple Repair（简单修复）/最近邻解决方案，不能因此发明一个新方法。**
+
+这一点现在的流程是对的：它要求 Failure（失败）和 Simple Repair（简单修复）先于 RCA，并且 RCA 只能解释 simple repair 后留下来的 residual failure（残余失败）。当前方案也明确要求这一点。
+
+---
+
+## 2. 继续追真正没被现有方法解决的问题
+
+于是问题变成：
+
+> 即使使用 Variable Impedance Control（可变阻抗控制），控制器到底应该根据什么 contact state（接触状态）决定阻抗？
+
+例如两次接触：
+
+* 当前力一样；
+* 当前压入量一样；
+* 当前速度也一样；
+
+但：
+
+* 一个刚刚长时间压过；
+* 一个刚接触；
+* 或材料、曲率、接触面积不同。
+
+因为软材料有 history dependence（历史依赖），**它们未来的力、接触面积、滑移风险可能不同**。
+
+于是同一个瞬时状态：
+
+> `当前 force / indentation / velocity`
+
+实际上可能对应两个不同的未来，因此也可能要求两个不同的最优阻抗。
+
+这时候 RCA（根因分析）就不应该再写：
+
+> “固定阻抗不够自适应。”
+
+而应该继续深入到：
+
+> **当前状态表示把“控制上不等价”的两个真实接触状态压成了同一个观测状态，即发生了 action-relevant state aliasing（与动作相关的状态混叠）。**
+
+这才是机制级 Root Cause（根因）。
+
+---
+
+## 3. 我检查了现有 RCA 机制能不能真的推出这个根因
+
+可以。
+
+当前 RCA contract（根因分析合同）保留了：
+
+* causal-depth trace（因果深挖）；
+* competing explanations（竞争解释）；
+* falsifier（证伪条件）；
+* intervention target（干预目标）；
+* evidence calibration（证据强度校准）；
+* 禁止先定算法再倒推根因。
+
+新版方案也明确要求这些现有 RCA 语义不能被削弱。
+
+所以这个案例可以形成：
+
+**Condition（条件）**
+不同材料/历史/几何，但瞬时简单观测相似。
+
+↓
+
+**Mechanism Failure（机制失败）**
+简单 contact representation（接触表示）把未来控制后果不同的状态映射成同一个状态。
+
+↓
+
+**Intermediate Failure（中间失败）**
+控制器错误预测不同阻抗动作的未来 wrench（力/力矩）、滑移、压力或接触稳定性。
+
+↓
+
+**Final Failure（最终失败）**
+选择错误阻抗。
+
+而且还能保留竞争解释：
+
+* 其实只是传感器延迟；
+* 其实只是参数没调好；
+* 其实显式粘弹性参数估计已经足够；
+* 其实强反馈已经把这些状态差异吸收掉了。
+
+**因此第一个关键问题——“Harness 能不能分析出真正根因”——我认为现在设计上已经过关。**
+
+---
+
+# 4. 然后测试你最关心的：能不能真的跨领域找到方法
+
+现在得到 RMC，Required Mechanism Change（必须发生的机制改变）：
+
+> **不能继续用会混叠控制状态的瞬时/手工状态；需要得到最小的 observable state（可观测状态），使它保留选择正确阻抗所需要的信息，同时去掉对控制没有用的信息。**
+
+换句话说：
+
+> Full history / raw signals（完整历史/原始信号）
+> → **Minimal decision-sufficient state（最小决策充分状态）**
+
+然后我按你现在规定的流程真的搜索了一次。
+
+---
+
+## 5. LLM Scientific Prior（大模型科研先验）
+
+看到：
+
+> “部分可观测 + 很多原始变量 + 需要找最小状态 + 状态必须足够支持决策”
+
+很自然会提出几个候选领域：
+
+* Reinforcement Learning State Abstraction（强化学习状态抽象）；
+* Partially Observable Control（部分可观测控制）；
+* Predictive State Representation（预测状态表示）；
+* Computational Mechanics（计算力学/计算机制学中的预测状态理论）。
+
+注意这里**只是领域假设，不是直接搬算法**。
+
+当前方案正是这样定义 MODEL_PRIOR（模型先验）和 ACADEMIC_BRIDGE（学术桥接）的。
+
+---
+
+# 6. Academic Bridge Discovery（学术桥接发现）
+
+然后我用这个机制结构，而不是“soft robot impedance”之类目标领域关键词去检索。
+
+很快就找到一个非常典型的**顶会方法**：
+
+### ICML 2022
+
+**Action-Sufficient State Representation Learning for Control with Structural Constraints**
+
+它的问题是：
+
+> 原始观测高维、噪声大，而且环境部分可观测；不是所有信息都值得进入控制决策。
+
+它的干预是：
+
+> 学习一个 **Action-Sufficient State Representation（动作充分状态表示）**——保留做正确决策真正需要的信息，同时压掉不必要信息。
+
+论文明确把目标定义为学习用于 decision-making（决策）的 minimal state representation（最小状态表示），并在部分可观测控制环境中验证。([Proceedings of Machine Learning Research][2])
+
+这就是一个真实的：
+
+> **Source Problem（来源问题）
+> → Source Intervention（来源干预）
+> → Mechanism Change（机制改变）
+> → Outcome（结果）**
+
+而且 Source 本身就是 ICML。
+
+---
+
+# 7. 再检查是不是“表面相似”，还是机制真的同构
+
+这是最重要的一关。
+
+### Source：ICML 的问题
+
+原始/部分观测
+→ 包含缺失信息和大量无关信息
+→ 无法得到稳定、有效的控制决策。
+
+### Source Intervention（来源干预）
+
+构造：
+
+> minimal action-sufficient state（最小动作充分状态）
+
+即：
+
+> 只保留决定最优 action（动作）需要的信息。
+
+---
+
+### Target：我们的软接触问题
+
+简单 contact state（接触状态）：
+
+> force + indentation + velocity
+
+可能：
+
+> 丢掉 history / geometry / tangential state（历史/几何/切向状态）中真正影响阻抗决策的信息；
+
+但如果把所有信息全部塞进去，又可能：
+
+> 高维、不可辨识、噪声大、实时性差。
+
+所以目标同样需要：
+
+> **最小、但足以决定 impedance action（阻抗动作）的状态。**
+
+---
+
+### Intervention-Level Isomorphism（干预级同构）检查
+
+| 检查     | Source（来源）                                   | Target（目标）                                        |
+| ------ | -------------------------------------------- | ------------------------------------------------- |
+| 失败     | 原始/部分观测不能支持正确 action                         | 简单接触观测不能支持正确阻抗                                    |
+| 被改变的东西 | state representation（状态表示）                   | contact state representation（接触状态表示）              |
+| 改变方向   | raw/insufficient → minimal action-sufficient | aliased/raw → minimal impedance-action-sufficient |
+| 改变位置   | policy（策略）之前                                 | impedance selection（阻抗选择）之前                       |
+| 为什么有效  | 保留 action 所需信息                               | 保留选择正确阻抗所需信息                                      |
+
+**这是机制同构，不是“两个论文都用了神经网络”。**
+
+所以这条 Source 是可以进入 Solution Principle（解决原理）的。
+
+当前方案也已经把这条规则写成硬条件：Source Intervention（来源干预）必须改变 Target RCA/RMC（目标根因/必须机制改变）证明需要改变的那个 causal/computational relation（因果/计算关系），位置、方向和生效条件也必须对应。
+
+---
+
+# 8. 真正迁移回来后，方法是什么
+
+这里也不能：
+
+> “把 ICML 的 SS-VAE（结构化序列变分自编码器）直接拿来控制机器人。”
+
+那还是 Application（应用）。
+
+应该把 Source implementation（来源具体实现）剥掉，只迁移 Principle（原理）：
+
+> **控制器真正需要的不是完整 contact state，而是对 impedance decision（阻抗决策）充分的最小状态。**
+
+于是可以自然得到一个目标方法 Seed（种子），比如先暂称：
+
+### Impedance-Action-Sufficient Contact State
+
+**阻抗动作充分接触状态**
+
+核心不是某个网络，而是定义：
+
+> 两个 contact histories（接触历史）如果在所有相关 impedance actions（阻抗动作）下产生等价的未来控制后果，就应该被压缩到同一个状态；
+
+反之：
+
+> 如果它们要求不同阻抗才能得到不同的安全/任务结果，就必须被状态表示区分开。
+
+于是：
+
+**原方法**
+
+`手工 contact variables / explicit parameter model（手工接触变量/显式参数模型）`
+→ impedance selection（阻抗选择）
+
+变成：
+
+**新方法**
+
+`raw contact observations + history（原始接触观测+历史）`
+→ **minimal impedance-action-sufficient representation（最小阻抗动作充分表示）**
+→ impedance selection（阻抗选择）
+
+这已经不是“拿 ICML 网络跑机器人”，而是把它的底层 intervention principle（干预原理）自然化成一个新的 contact-control state definition（接触控制状态定义）。
+
+---
+
+# 9. 这是不是顶会顶刊级？
+
+这里流程表现得也比较正确：**它不能因为 Source 是 ICML 就自动判顶刊。**
+
+现有同领域工作已经会：
+
+* 估计粘弹性参数；
+* 在线改变阻抗；
+* 用 MPC（模型预测控制）选择阻抗；
+* 用模型或学习模型预测接触。
+
+例如 ICRA 2024 的方法已经是“viscoelastic estimation（粘弹性估计）→ variable impedance（可变阻抗）”。([Iris][1])
+
+所以新的贡献必须是：
+
+> **不是更好地估计某个材料参数，而是重新定义“控制所需要的 contact state 到底是什么”，并找出它的 minimal sufficiency boundary（最小充分性边界）。**
+
+这就有可能形成真正的 Scientific Delta（科学增量）：
+
+> **哪些 contact information（接触信息）在什么 regime（工况）下真正改变 impedance decision；哪些信息虽然能提高建模精度，但对闭环控制其实没有用。**
+
+这比：
+
+> “加一个 RNN（循环神经网络）预测一下，再调阻抗”
+
+强得多。
+
+而现在 Top-Venue Strength Gate（顶会顶刊强度门）会单独检查 Problem Value（问题价值）、Necessity（必要性）、Target Intervention Novelty（目标干预新颖性）、Mechanism Delta（机制增量）、Scientific Delta（科学增量）、Closest-Prior Separation（最近邻区别）等，并且任何关键项失败都不能靠性能或者算法名字抵消。
+
+这一点也是正确的。
+
+---
+
+# 10. 最小测试还能不能真正判断它 work
+
+可以，而且这个例子能设计出非常好的 Killer Test（杀手级判别测试）。
+
+找两组状态：
+
+> 当前 force / indentation / velocity 基本一样，
+
+但：
+
+> history / material / geometry 不同。
+
+然后看：
+
+### 如果 RCA 错了
+
+虽然历史不同，但：
+
+> 最优阻抗仍然一样，最终闭环结果也等价。
+
+那么：
+
+> **“状态混叠导致错误阻抗”这个 Root Cause 直接被杀掉。**
+
+### 如果 RCA 对
+
+简单状态看起来相同，但：
+
+> 最优阻抗明显不同。
+
+说明确实存在 action-relevant aliasing（动作相关状态混叠）。
+
+---
+
+再比较：
+
+1. 简单瞬时状态；
+2. 显式 viscoelastic parameter estimator（粘弹性参数估计器）；
+3. 原始大 history model（历史模型）；
+4. proposed minimal action-sufficient state（提出的最小动作充分状态）。
+
+关键不是谁总分最高，而是：
+
+> proposed state 是否只在**确实需要不同阻抗**的情况下把两个状态分开；
+
+同时：
+
+> conditioned on proposed state（给定提出状态后），剩余原始信息是否已经不能进一步改变最佳阻抗或闭环结果。
+
+如果成立，才真正证明：
+
+> **它既 sufficient（充分），又接近 minimal（最小）。**
+
+这就是一个非常顶刊式的机制实验，而不是普通 ablation（消融实验）。
+
+---
+
+# 测试后我发现的真正问题
+
+## 问题 1：当前“最终冻结文件”还没有同步我们最后的共识
+
+这是现在唯一明确必须改的东西。
+
+当前文件仍写着：
+
+> `problem_necessity`
+> → 新主动 test
+> → handoff
+> → result
+> → `NECESSITY_TEST_EVIDENCE`
+
+
+
+这应该按我们刚刚收敛的结论删除。
+
+正式主动测试应该只保留：
+
+> `principle_human_selection`
+> → `principle_test_design`
+> → `principle_test_human_approval`
+> → `principle_evaluation`
+
+这条 workflow 在现有方案里本来就存在。
+
+---
+
+## 问题 2：我建议把刚才这个案例变成一个核心科学回归测试
+
+不是把“阻抗控制”写进通用 Harness。
+
+而是在 E2E regression（端到端回归测试）里专门验证：
+
+> **固定阻抗失败**
+> → Simple Repair 发现 Variable Impedance 已经能解决表层问题
+> → 不允许直接产生“自适应阻抗”这种弱 Candidate
+> → Residual RCA 深挖成 decision-state insufficiency（决策状态不充分）
+> → RMC = minimal action-sufficient state（最小动作充分状态）
+> → LLM Scientific Prior（大模型科研先验）找到 ML/RL（机器学习/强化学习）
+> → Academic Bridge（学术桥接）找到类似 ICML Action-Sufficient State Representation（动作充分状态表示）这种真实顶会问题—干预对
+> → Intervention-Level Isomorphism（干预级同构）通过
+> → 自然化成 contact-specific principle（接触领域专用原理）
+> → Early Novelty（早期新颖性）检查没有等价 target intervention（目标干预）
+> → 才允许形成 Strong Candidate。
+
+**如果新版 Harness 能稳定走出这条链，我才会认为 Method Design 的核心改造真正验收通过。**
+
+---
+
+# 最终结论
+
+我现在比单纯看方案文档更有把握：
+
+### 第一关键点：RCA 能不能真的找到根因？
+
+**能。**
+
+而且最重要的是，它不会停在：
+
+> “固定阻抗不自适应”
+
+这种表层原因，而是有机制把 Simple Repair 吃掉以后继续追：
+
+> **到底哪个 causal/computational relation（因果/计算关系）导致残余失败。**
+
+---
+
+### 第二关键点：能不能真的找到其他领域的问题—干预对并迁移？
+
+**按照最后收敛的设计，可以。**
+
+我用这个案例实际走了一次：
+
+> soft-contact state insufficiency（软接触状态不充分）
+
+确实可以通过：
+
+> LLM Scientific Prior（大模型科研先验）
+> → Academic Bridge（学术桥接）
+
+找到 ICML 2022 的 **Action-Sufficient State Representation（动作充分状态表示）**，它的 Source Problem → Intervention（来源问题→干预）与目标 RMC 有真正的 intervention-level isomorphism（干预级同构），不是表面类比。([Proceedings of Machine Learning Research][2])
+
+然后还能自然化成：
+
+> **“最小阻抗动作充分接触状态”**
+
+而不是简单复制 Source 方法。
+
+所以我当前判断是：
+
+> **科研流程的核心设计已经基本正确，具备生成顶会顶刊级 Strong Method Seed（强方法种子）的能力。**
+>
+> 但在真正改 Harness 之前，必须先把“最终冻结修改方案”同步到刚刚收敛的版本，并且我强烈建议把上述 RCA → Cross-domain Transfer（跨领域迁移）案例作为最终核心验收用例。否则只跑 schema/unit test（模式/单元测试）不足以证明 Method Design 真正会做科研。**
+
+[1]: https://iris.unitn.it/handle/11572/434091?utm_source=chatgpt.com "A Passive Variable Impedance Control Strategy with Viscoelastic Parameters Estimation of Soft Tissues for Safe Ultrasonography"
+[2]: https://proceedings.mlr.press/v162/huang22f.html?utm_source=chatgpt.com "Action-Sufficient State Representation Learning for Control with Structural Constraints"

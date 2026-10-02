@@ -1,0 +1,163 @@
+核心要求：以当前 R9 为起点，继续完整的 Method Design，最终得到一套同时满足 Problem fit、Method fit / necessity 和 Scientific strength、达到顶会顶刊标准的完整 Method；必要时可调研、迁移、替换、删除、重构或向上游回退，而不是以保留现有方案为目标。
+
+-----------------------------------
+
+对，应该保留那段 MPC precedent。你现在要的不是重新设计 R9，而是**按照新原则，对 R9 做一次“为什么是它”的评审级梳理**。最合适的版本是下面这样：
+
+### 一、Method Design 的新评审原则
+
+一个 Method 要达到顶会顶刊级别，必须同时满足三个标准：
+
+1. **Problem fit**：是否准确解决了领域真正的核心痛点。
+2. **Method fit / necessity**：在能够解决该痛点的方法中，**为什么这条技术路线是最合适且自然的**。
+3. **Scientific strength**：前两点成立以后，Method 本身是否具有足够的创新性、科学深度和完整性。
+
+因此正确顺序应该是：
+
+$$
+\boxed{
+\text{找对痛点}
+\rightarrow
+\text{找到可行解决路线}
+\rightarrow
+\text{判断哪条最契合}
+\rightarrow
+\text{确定关键技术选择}
+\rightarrow
+\text{最后判断是否达到顶会顶刊强度}
+}
+$$
+
+如果最契合的方法创新性不足，可以进一步升级；但升级后的方法仍然必须解决原来的核心痛点，并保持方法与问题之间的自然对应，不能为了创新性反过来牺牲 Method fit。
+
+---
+
+## 二、按这个原则重新审查当前 R9
+
+### 1. 为什么是 learned predictive contact model？
+
+R9 当前的核心建模路线是：
+
+$$
+\text{contact history}
+\rightarrow
+\text{decision-sufficient state}
+\rightarrow
+\text{candidate impedance-conditioned future outcomes}
+$$
+
+即不再只辨识 NNBO 中的 HC 参数，而是直接预测不同候选阻抗下未来的 force、trajectory、slip/contact、wrench、energy 等决策结果。
+
+这里真正需要回答的不是“神经网络能不能做”，而是：
+
+$$
+\boxed{
+\text{更完整的物理接触建模}
+\quad VS\quad
+\text{learned predictive modeling}
+\quad VS\quad
+\text{必要时的 hybrid}
+}
+$$
+
+NNBO 原本采用单点、单方向 HC 模型；因此最自然的另一条升级路线本来就可能是继续增强物理模型，例如加入 finite-area、geometry、friction、history，比如参考ausoscan设计的D:\桌面\科研_idea\SoftScan Contact Control_完整梳理版_2026-08-22\01_当前方法_待核验 。 
+
+所以当前 R9 必须证明：
+
+> **为什么针对 continuous soft-contact scanning，decision-sufficient learned predictive route 比直接建立更完整的物理 contact model 更契合问题？**
+
+不能默认答案是“神经网络泛化更好”。
+
+而且 R9 **目前没有充分完成这一比较**。
+
+---
+
+### 2. 如果 learned route 成立，为什么又是当前的 GRU/TCN 等具体模型？
+
+R9 当前提出 causal GRU/TCN 作为 history encoder，但同时明确把具体网络结构列为 implementation freedom，而不是 Method contribution。
+
+因此还需要回答第二层：
+
+> **当前问题到底需要怎样的 temporal representation，为什么 GRU/TCN 等当前候选最适配？**
+
+这里不是要求证明某一个网络“绝对最好”，而是不能出现：
+
+$$
+\text{需要历史}
+\Rightarrow
+\text{直接选 GRU/TCN}
+$$
+
+如果现阶段没有充分依据固定网络类型，就应该继续把它保持为可替换实现，而不要写死成科学核心。
+
+---
+
+### 3. 为什么 calibration-out adaptation 是当前这套方法？
+
+R9 当前采用：
+
+$$
+\text{bounded set-membership}
++
+\text{projected EW-RLS}
+$$
+
+在线更新低维 residual：set-membership 维护可能模型集合，EW-RLS 更新中心估计。
+
+这里同样需要确认：
+
+> **这是因为 calibration-out contact variation 本身最适合这样处理，还是主要因为这种组合计算方便、容易接入后续优化？**
+
+如果只是实现手段，就应保持为 implementation choice；如果要成为 Method 的关键组成部分，则需要有明确的问题驱动理由。
+
+---
+
+### 4. 为什么是 MPC 做阻抗选择？
+
+这一点至少有明确先例，**不是我们凭空想出来的组合**：
+
+* 2023 *Robotics and Autonomous Systems* 的 **deep MPVIC**：学习交互模型，然后 MPC 在线调整 variable impedance parameters。
+* 2022 *Artificial Intelligence* 的 **Q-Learning-based MPVIC**：学习人机交互动力学，再由 MPC 在线优化阻抗参数。
+* 2025 *Robotics and Autonomous Systems* 的 **MPVIC**：在线估计未知软环境，再由 MPC 优化 variable impedance，并加入约束与 passivity。
+
+所以可以确认：
+
+> **“预测/辨识交互模型 → MPC 在线选择 variable impedance”是已有机器人研究验证过的合理技术范式。**
+
+而 R9 进一步让 MPC 联合选择
+
+$$
+[k_n,d_n,k_t,d_t]
+$$
+
+并同时处理 force、trajectory、slip/contact、wrench、energy、actuator 等约束。
+
+但现有 precedent 只能证明 **MPC 可以用**，还需要回答：
+
+> **为什么针对当前这种“预测未来接触结果 + 多目标 + 多硬约束 + 在线阻抗选择”的问题，MPC 比其他阻抗决策机制更契合？**
+
+---
+
+## 三、当前 R9 真正需要补的是什么
+
+不是再增加新模块，而是补齐这一层 **Method Selection Justification**：
+
+$$
+\boxed{
+\text{为什么是 learned contact modeling？}
+\rightarrow
+\text{为什么是当前 temporal representation？}
+\rightarrow
+\text{为什么是当前 online adaptation？}
+\rightarrow
+\text{为什么是 MPC-based impedance decision？}
+}
+$$
+
+然后再回到第三个标准：
+
+$$
+\boxed{\text{整套 Method 是否具有顶会顶刊级 scientific strength}}
+$$
+
+**所以当前对 R9 的评审结论不是“方法不行”，而是：Problem fit 和技术完整性已经比较清楚，现在最需要补证的是 Method fit——从总体路线到几个关键技术选择，为什么它们是针对当前问题自然且最契合的选择。**

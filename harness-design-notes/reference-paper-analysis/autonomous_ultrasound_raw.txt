@@ -1,0 +1,1340 @@
+Article https://doi.org/10.1038/s41467-024-48421-y
+A fully autonomous robotic ultrasound
+system for thyroid scanning
+Kang Su 1,9
+, Jingwei Liu 1,9
+, Xiaoqi Ren2,3,9
+, Yingxiang Huo 2,3,9
+,
+Guanglong Du 1,9
+, Wei Zhao4
+, Xueqian Wang 5
+, Bin Liang6
+, Di Li7
+&
+Peter Xiaoping Liu 8
+The current thyroid ultrasound relies heavily on the experience and skills of
+the sonographer and the expertise of the radiologist, and the process is phy-
+sically and cognitively exhausting. In this paper, we report a fully autonomous
+robotic ultrasound system, which is able to scan thyroid regions without
+human assistance and identify malignant nod- ules. In this system, human
+skeleton point recognition, reinforcement learning, and force feedback are
+used to deal with the difﬁculties in locating thyroid targets. The orientation of
+the ultrasound probe is adjusted dynamically via Bayesian optimization.
+Experimental results on human participants demonstrated that this system
+can perform high-quality ultrasound scans, close to manual scans obtained by
+clinicians. Additionally, it has the potential to detect thyroid nodules and
+provide data on nodule characteristics for American College of Radiology
+Thyroid Imaging Reporting and Data System (ACR TI-RADS) calculation.
+Ultrasound (US) diagnosis is widely used in examining organs, such as
+the liver, gallbladder, pancreas, spleen, kidney, and thyroid1–6
+. How-
+ever, the qualities of US diagnosis rely heavily on the experience and
+skills of the sonographer and radiologist7–9
+. The acquisition of US
+images usually exhibits variability among clinicians, and even the same
+examiner may potentially produce very different results from different
+scans10
+. Furthermore, the standard practice of having patients to
+assume a supine position and maintain still- ness during examinations
+can present challenges, as these requirements may not always be met11
+.
+Consequently, operator-dependency and patient-speciﬁc factors
+introduce inconsistency and unreliability into US diagnosis results12
+.
+From pure human control to complete autonomy, the level of
+autonomy of medical robots can be classiﬁed into different
+categories13,14
+. According to the framework presented in ref. 13, the
+level of autonomy includes level 0, which is deﬁned as no autonomy,
+e.g., tele-operated systems or prosthetic devices; level 1, robotic
+assistance, the robot guides the human during a task while the human
+maintains a continues control; level 2, task autonomy, the robot pro-
+vides discrete rather than continuous control over a speciﬁc task; level
+3, conditional autonomy, the system is capable of generating different
+task strategies but relies on the human’s selection or approvement;
+level 4, high autonomy, the system is capable of making medical
+decisions but only when supervised by a qualiﬁed physician; level 5, full
+autonomy, the robot can perform the entire procedure without any
+human involvement. Under the concept of the autonomy level of
+medical robots (Level 0–5), the autonomy level of ultrasonic inspec-
+tion robots (Level 0–3) has been deﬁned at present. Level 0 is deﬁned
+as “manual probe manipulation”, the proposed tele-echography
+systems15–19
+. The US robotic system in Level 1 utilizes visual servo
+technology to allow the robot to automatically track desired image
+features20–23
+and compensate for unnecessary patient movement dur-
+ing remote operation. Level 2 is described as performing autonomous
+Received: 8 January 2023
+Accepted: 23 April 2024
+Check for updates
+1
+School of Computer Science and Engineering, South China University of Technology, Guangzhou 510006, China. 2
+School of Future Technology, South China
+University of Technology, Guangzhou 511442, China. 3
+Peng Cheng Laboratory, Shenzhen 518000, China. 4
+Division of Vascular and Interventional Radiology,
+Nanfang Hospital Southern Medical University, Guangzhou 510515, China. 5
+Tsinghua Shenzhen International Graduate School, Tsinghua University, Shenzhen
+518055, China. 6
+Department of Automation, Tsinghua University, 100854 Beijing, China. 7
+School of Mechanical and Automotive Engineering, South China
+University of Technology, Guangzhou 510641, China. 8
+Department of Systems and Computer Engineering, Carleton University, Ottawa, ON K1S 5B6, Canada.
+9
+These authors contributed equally: Kang Su, Jingwei Liu, Xiaoqi Ren, Yingxiang Huo, Guanglong Du. e-mail: csgldu@scut.edu.cn;
+wang.xq@sz.tsinghua.edu.cn; bliang@tsinghua.edu.cn; xpliu@sce.carleton.ca
+Nature Communications| (2024)15:4004 1
+1234567890():,;
+1234567890():,;
+US acquisition along a manually planned path24,25
+. The US robotic
+system in Level 3 can autonomously plan and perform US acquisition
+without any instruction from a human operator but requires the
+supervision of an operator26–29
+.
+With the improvement of the autonomy of ultrasonic inspection
+of robots, substantial advancements in the ﬁeld have been achieved,
+providing promising solutions to improve the accuracy and efﬁciency
+of US procedures. The prerequisite for robotic US acquisitions is to
+plan the scanning path to ensure ﬁnding a desired imaging plane or
+covering a selected region of interest. In general, existing systems
+typically rely on global information of the target tissue acquired from
+preoperative medical images or surface information obtained from
+external sensors27,30,31
+. Given the inherent variability in individual
+anatomy and the dynamic of human motion, executing a scanning task
+based on a predetermined trajectory presents signiﬁcant challenges.
+To address these difﬁculties, Jiang et al.32
+integrated the feedback of
+segmented images into the control process. Zhan et al.33
+have pro-
+posed a visual servoing framework for motion compensation. How-
+ever, these methods usually assume that the target features exist in the
+US image, and once the features are lost, the control methods may fail.
+In an effort to apply online image-guided methods to deﬁne the
+scanning trajectory and derive clinically relevant information out of
+the 3D reconstructed image, Zielke et al.34
+implemented in-plane
+navigation speciﬁcally designed for robotic sonography in thyroid
+volumetry. However, in actual clinical practice, sonographers often use
+a combination of multiple views, such as transverse and longitudinal
+scans, for the identiﬁcation and diagnosis of both benign and malig-
+nant pathologies35
+. Furthermore, the increased autonomy of the US
+robotic system may lead to a higher risk of injury to patients due to
+machine failure, so the clinical effectiveness of the system needs to be
+further studied. Although many implementations have been
+proposed36–40
+, the overall success scanned rate is low due to the dif-
+ferences between human bodies. To this end, the fully autonomous
+robotic diagnosis system adapted to clinical practice is still challen-
+ging, as it calls for more perception, planning, and control on the part
+of the robot while taking into account patient safety.
+In order to eliminate the above obstacles, we developed a fully
+autonomous robotic ultrasound system (FARUS), as shown in Fig. 1. To
+the best of our knowledge, this is the ﬁrst in-human study of fully
+autonomous robotic US scanning for thyroid. In conventional US
+examinations, the process involves a division of responsibilities
+between sonographer and radiologist. However, the presented FARUS
+integrates the both roles into a single autonomous unit. Here, we
+achieved a human-like fusion of both in-plane and out-of-plane scan-
+ning, allowing for comprehensive scanning of the thyroid region, and
+providing a detailed evaluation of the anatomy. The FARUS overcomes
+the challenges associated with the localization of thyroid targets
+through a reinforcement learning strategy. It enables to optimize the
+orientation of the probe based on Bayesian optimization. It also uses
+deep learning techniques for real-time segmentation of the thyroid
+gland and potential nodules. As a result, this system provides a con-
+venient autonomous tool integrating nodule detection, lesion locali-
+zation and automatic classiﬁcation.
+The second contribution of this work lies in the practical realiza-
+tion and clinical application of the FARUS, which achieves high-quality
+US images in comparison with those manually collected by sono-
+graphers, and realizes accurate and real-time detection of thyroid
+nodules. We investigated the validity of our approach by conducting a
+comparative evaluation of FARUS-driven diagnostic results for thyroid
+nodules against the established hospital benchmark. We have con-
+ducted extensive evaluations and studied the system’s performance
+and reliability. Our work addresses the gap between existing research
+and clinical application by demonstrating the deployment of this sys-
+tem in a real-world clinical setting.
+Results
+System design for autonomous ultrasound imaging
+The robotic scanning procedure comprises four phases, mirroring the
+clinical workﬂow: thyroid searching (TS), in-plane scanning (IPS), out-
+of-plane scanning (OPS), and multi-view scanning (MVS), as depicted in
+Fig. 1a. An overview of our autonomous robotic system for thyroid
+scanning and real-time analysis is presented in Fig. 1e. The system
+consists of a six-degree-of-freedom UR3 manipulator that carries a
+linear US probe, a US probe ﬁxture and a six-axis force/torque sensor.
+The high-frequency 2D linear US probe enables the optimal depth
+penetration within the superﬁcial location of the thyroid tissue. The
+six-axis force/torque sensor can detect three orthogonal forces and
+torques between the human neck and probe. The Kinect camera tracks
+3D view skeleton joints of the human body, while its 2D view provides
+visual feedback for the operator supervising the robotic system. It is
+remarkable that the entire scanning process, including thyroid
+searching, force control, image quality optimization, and suspected
+nodule detection was completed autonomously.
+The following describes the thyroid scanning workﬂow of the
+proposed FARUS, as in Fig. 1b–d. First, the participant was instructed
+to turn his/her head after applying US gel to the neck skin. The scan-
+ning range was speciﬁed as a rectangular area with a length of 6.47 cm
+and a width of 5.48 cm. The contact force within the range of 2.0 N and
+4.0 N was maintained to ensure sufﬁcient pressure and prevent
+pressure-induced shape distortion of the thyroid anatomy. The thyroid
+search procedure began when the probe reached the estimated posi-
+tion given by skeleton joint locations. Due to individual anatomical
+variations, the thyroid gland may not be immediately visible in the US
+image obtained at the probe’s estimated position. In such case, we
+used reinforcement learning to adjust the probe’s movement until the
+thyroid gland is accurately located. The search procedure was ﬁnished
+when the gland region, segmented by our gland segmentation model,
+exceeds a predetermined threshold. Subsequently, the probe orien-
+tation was optimized through Bayesian optimization41
+, see Fig. 1c. In
+the IPS procedure, the probe scans upward until the upper thyroid
+lobe end is invisible, then scans downward. Nodule locations are
+recorded during detection by our segmentation network. Out-of-plane
+scanning is employed for previously recorded nodules while avoiding
+clavicle and jaw collisions. The scanning halts if FARUS detects sig-
+niﬁcant participant movement. Finally, we use the ACR TI-RADS scor-
+ing method to classify nodules as either benign or malignant, based on
+their distinct characteristics, see Fig. 1f.
+Deep learning for gland and nodule segmentation
+For a fully autonomous robotic thyroid scan, real-time location infor-
+mation of thyroid lobes and nodules is crucial. Given the stable char-
+acteristics of healthy thyroid lobes and the diverse nature of nodules,
+we used two separate networks for the thyroid lobe and nodule seg-
+mentation tasks, respectively, as in Fig. 2a. Each model incorporates a
+pre-trained encoder for feature extraction and employs the UNet42
+architecture for the decoder, generating masks from extracted fea-
+tures. To train the nodule segmentation network with prior knowledge
+from the thyroid lobe mask, thyroid lobe pseudo-labels are generated
+for nodule images. Spatial and feature constraints are then applied to
+enhance nodule segmentation based on these pseudo-labels. The
+spatial constraint ensures proximity to the thyroid lobe, while the
+feature constraint emphasizes regions with similar gray values. To
+address overﬁtting with limited samples, a two-step approach is
+employed: pre-training on a nodule source dataset followed by ﬁne-
+tuning on our smaller dataset.
+To understand the segmentation preferences of the gland seg-
+mentation model across different slices, we used Grad-CAM43
+to visua-
+lize the fourth level output of the encoder. In Fig. 2b, the highlighted
+regions are more closely aligned with the areas of interest during central
+Article https://doi.org/10.1038/s41467-024-48421-y
+Nature Communications| (2024)15:4004 2
+Fig. 1 | Description of the thyroid scan procedure and the proposed FARUS.
+a The four-stage thyroid scan procedure used by clinical doctors. Stage I: the doctor
+placed a US probe below the thyroid cartilage and found the thyroid lobe in the US
+image; Stage II: the doctor performed IPS from the breastbone to the hyoid bone,
+and backward; Stage III: the doctor performed OPS to screen for thyroid disease;
+Stage IV: the doctor checked multi-view of the thyroid. b–d Control architecture of
+the full autonomous control strategy for robotic thyroid ultrasound imaging.
+Initially, we plan the preliminary scanning path through the human skeleton and
+subsequently complete the thyroid search process using reinforcement learning
+and thyroid segmentation. Gland and nodule identiﬁcation are performed using a
+pretrained gland segmentation model and a weakly supervised nodule segmenta-
+tion model, respectively. Throughout the scanning process, we used Bayesian
+optimization to adjust the scanning angle. Additionally, we combined IPS and OPS
+to perform multi-angle scanning for suspected nodule areas. e The overview of the
+experimental setup. f FARUS enables estimate TI-RADS level with key character-
+istics of nodules.
+Article https://doi.org/10.1038/s41467-024-48421-y
+Nature Communications| (2024)15:4004 3
+thyroid scanning. However, when scanning the upper pole of the thyr-
+oid, the attention map reveals other targets, such as muscles. To
+address cases where the thyroid target is small or even invisible, we
+introduced reinforcement learning to the thyroid search process, see
+“Thyroid search and probe orientation optimization” section. Figure 2c
+shows the segmentation results of our proposed VariaNet on three
+types of thyroid nodules. Here, VariaNet-B, VariaNet, and VariaNet+
+denote models trained with different types of loss functions: no addi-
+tional loss, feature loss only, and a combination of feature and spatial
+loss, respectively. VariaNet-T represents the reﬁned model, trained with
+a dual loss function and source domain data. The integration of distance
+loss was critical to constrain hypoechoic nodules, which often
+have similar gray value distributions to other tissues, and thereby
+minimize the false positive rate. At the same time, the implementation
+of feature loss improved the segmentation performance on isoechoic
+nodules, especially in cases where the gray values of the nodules closely
+match those observed in the thyroid region. In addition, the application
+of transfer learning augmented with prior knowledge proved to be
+effective in strengthening the robustness of the network, as evidenced
+by the segmentation of hyperechoic nodules. In Fig. 2d, a comparative
+evaluation between our proposed VariaNet and other semantic seg-
+mentation models shows that the fusion of weakly supervised learning
+improves the segmentation capabilities of the nodule network. The
+proposed VariaNet exceeds the baseline model VariaNet-B by 0.97% IoU
+score on the SCUTN1k testset. We present ROC curves to intuitively
+illustrate the performance of the proposed method, proving that Var-
+iaNet outperforms other existing methods due to the tailor-made loss
+function, see Fig. 2e.
+Thyroid search and probe orientation optimization
+An important problem in robotic thyroid scanning is the localization of
+the thyroid on the body surface. We present a coarse-to-ﬁne approach
+to thyroid localization. In the coarse estimation step, the neck region is
+identiﬁed by human skeletal key points. Notably, the thyroid lobe may
+not be visible based on the location predicted by the skeletal data,
+because the anatomy of the neck varies widely in different popula-
+tions. Therefore, we added the ﬁne-tuning step to further localize the
+thyroid lobe. To enable robotic scanning in such a case, we used
+reinforcement learning to determine the location of the thyroid.
+Figure 3 shows the training process of Deep Q-Network (DQN)
+learning with panoramic environment. The process starts with
+sequences of data that are collected and labeled manually. We labeled
+each sequence of thyroid images a goal or an ideal position for model
+to learn as shown in Fig. 3a. After that, each of sequence of image will
+be aligned and attached to be a panorama as shown in Fig. 3b. Then a
+bunch sequence of image will be randomized and generated into
+panoramas as shown in Fig. 3c, d. There is a sliding window will slide
+according to the action given by the agent. To mimic the real envir-
+onment when sometimes the probe is not fully attached, we combine
+simulated view with the random noise as shadow mask, to generate
+imperfectthyroid images that mimic the appearance when the probe is
+not fully attached, as shown in Fig. 3e. Figure 3f presents the results of
+the training evaluation for reinforcement learning. During the
+exploration stage, which comprises the initial 30,000 steps. Figure 3g
+illustrates a progressive increase in the mean reward, indicating the
+gradual improvement of the RL model’s performance on the given task
+as it continues to learn over time. Figure 3h depicts the process of
+thyroid scanning facilitated by the DQN Learning model in the context
+of FARUS. The DQN learning model enables the robotic arm to execute
+movements based on the input received from US images. As illustrated
+in Fig. 3h, the model accurately predicts the required movements to
+guide the robotic arm effectively.
+In the ﬁrst and fourth images, the probe is ﬁrst attached to the
+patient’s neck. The model then predicts the appropriate directions for
+the robotic arm to move in each frame. The blue bar represents the
+model’s predictions for movement to reach the ideal position. The
+green bar represents the model’s prediction for maintaining a sta-
+tionary position once the ideal position is reached. Conversely, the
+yellow bar represents the model’s predictions when the patient is
+already in motion. The DQN learning model instructs the robotic arm
+to move to the right based on the ﬁrst thyroid image until the arm
+reaches the position with the ideal thyroid image, as shown in the
+second thyroid image. Notably, our proposed FARUS can effectively
+guide the robotic arm even when the patient is moving. For example, at
+6.3 s, when the patient’s neck moves to the left, the model adjusts the
+position of the robotic arm accordingly, resulting in the leftward
+movement shown in the third thyroid image. In the fourth thyroid
+image, the robotic arm is attached to the mid-neck region, which is not
+the correct location to detect the presence of the thyroid gland in the
+neck. The model guides the robotic arm to move to the left until it
+reaches the ideal position. In addition, even in the absence of thyroid
+presence in the ﬁfth image, the model has learned to predict the ideal
+position and guides the robotic arm to stop at that position. The DQN
+learning model in FARUS demonstrates its ability to accurately guide
+the robotic arm during thyroid scanning, even in the presence of
+patient movement or the absence of the thyroid gland.
+Experienced sonographers usually ﬁne-tune the probe angle
+after locating the thyroid to obtain high-quality US images. To imitate
+such an expert behavior, an autonomous robotic system should
+assess the quality of US images and feed them back to adjust the
+probe orientation. However, taking into account the limited resolu-
+tion of the Kinect and potential participant movements during the
+scan, the pre-estimated normal vector cannot be directly applied as
+the normal vector for subsequent scans. To tackle this problem,
+Bayesian optimization algorithm with image entropy as the loss
+function was used to obtain a better probe orientation with very few
+adjustments. Although some statistical methods such as grayscale,
+conﬁdence map and root mean square error (RMSE) have been pro-
+posed, there is still no gold standard for evaluating US image quality44
+.
+In this work, we used the image entropy to evaluate US image quality
+because it is highly effective for image processing and can be used
+to assess texture in images based on a statistical measure of
+randomness45
+.
+In many instances, Bayesian optimization (BO) outperforms
+expert as well as other state-of-the-art global optimization algorithms.
+Bayesian optimization constructs a surrogate model for the objective
+function and quantiﬁes the uncertainty through Bayesian inference.
+This surrogate model determines where the next candidate will be, as
+in Fig. 4a. The signiﬁcant differences in image entropy values were
+observed after the BO phase for 89 participants (Fig. 4b). During the
+BO phase, the position of the US probe remains constant; therefore,
+probe orientation and contact force are the two major factors in the
+entropy value of the US image. We consider a limited budget of N = 5
+iterations to speed up the BO phase. The entropy of the US image
+varies from 7.172 to 7.173 in 5 iterations, and the max entropy corre-
+sponding to the optimal orientation was reached at the second itera-
+tion (Fig. 4c, d). When the number of iterations reached 5, a higher
+drop in performance was observed due to its exploration nature.
+During this experiment, the probe was initially set at a relatively opti-
+mal angle, resulting in a less noticeable entropy increase before and
+after Bayesian optimization. However, between 21.3 and 24.8 s, the US
+probe underwent a 10-degree angle adjustment, revealing that the
+entropy value of the US image responded more sensitively to angle
+changes compared to image conﬁdence. This sensitivity could be
+attributed to the level of contact between the skin and the probe. As
+illustrated in Fig. 4e, there is a positive relationship between the image
+entropy and conﬁdence map46
+that evaluates the contact condition at
+each pixel. As the entropy value consumes less computation, it allows
+for a real-time control of image quality. To further explore the inﬂu-
+ence of contact force on image quality, we conducted an investigation
+Article https://doi.org/10.1038/s41467-024-48421-y
+Nature Communications| (2024)15:4004 4
+Fig. 2 | Thyroid gland and nodule segmentation with deep learning networks.
+a Thyroid and nodule segmentation network based on pre-training and weakly
+supervision. The feature and spatial losses are used to provide prior knowledge to
+the network considering the diversity of nodule samples and the space constrain
+between thyroid lobes. b Thyroid lobe segmentation based on pre-training. c Our
+proposed VariaNet and its variants predict results for different types of nodules.
+d Comparisons with the existing segmentation models on the SCUTN1K testset
+(best result in bold). e Receiver Operating Characteristic (ROC) curve of different
+algorithms on the SCUTN1K testset. Source data are provided as a Source Data ﬁle.
+Article https://doi.org/10.1038/s41467-024-48421-y
+Nature Communications| (2024)15:4004 5
+Fig. 3 | Training process of DQN learning in panoramic thyroid environment.
+a A sequence of image is collected and labeled manually. b The alignment of
+sequence image into panorama. c Blending images in a random sequence.
+d Generated panorama. e The simulation of panorama-base sliding window.
+f Average reward vs. step. g Average episode length vs. step. h Trained model’s
+prediction vs. time (please refer to Supplementary Movie 1 for additional details).
+Source data are provided as a Source Data ﬁle.
+Article https://doi.org/10.1038/s41467-024-48421-y
+Nature Communications| (2024)15:4004 6
+Fig. 4 | Bayesian orientation (BO) optimization. a Overview of Bayesian optimi-
+zation. Example illustrating a Gaussian process surrogate model ﬁtting to data derive
+from a unknown target and its expected utility function maximizing to select the next
+candidate. b The boxplot displaying the signiﬁcant differences in image entropy
+values after BO phase for participants (n = 89); the top, middle, and bottom bound-
+aries of the boxplots represent 25th, 50th, and 75th percentile, respectively; the small
+squares represent the mean. Outliers deﬁned when value larger than 1.5*IQR + 75th
+percentile; ****p < 0.0005, p value obtained with a paired, two-sided t-test. c, d Probe
+orientation optimization procedure shown the ﬁve decisions made by BO with image
+entropy as loss function (please refer to Supplementary Movie 2 for additional
+details). e The relationship between image entropy and mean conﬁdence46
+that
+characterize the contact condition of US image, as seen in a positive correlation
+between two evaluation metrics. f Force values greater than 2 N do not cause major
+changes in the median entropy. The 13,256 pairs of data from 9 participants (n = 9)
+were divided into 10 groups and playback sampled 800 times for each group; the top,
+middle, and bottom boundaries of the boxplots represent 25th, 50th, and 75th per-
+centile, respectively; the stars represent the median. Outliers deﬁned when value
+larger than 1.5*IQR + 75th percentile. Source data are provided as a Source Data ﬁle.
+Article https://doi.org/10.1038/s41467-024-48421-y
+Nature Communications| (2024)15:4004 7
+involving nine participants. Each participant was instructed to apply
+varying levels of force on the US probe, positioned at the robot’s end,
+while ensuring safety under continuous manual monitoring. Figure 4f
+demonstrates that when the contact force between the probe and the
+skin exceeds 2 N, the median of the image entropy value remains
+stable. Taking scanning comfort and safety into account, we set the
+maximum contact force at 4 N.
+Fully autonomous robotic ultrasound imaging
+In actual clinical practice, sonographers frequently employ a combi-
+nation of multi-view scanning methods to conduct comprehensive and
+detailed diagnosis of suspected nodules. Drawing inspiration from this
+clinical experience, once FARUS ﬁnds a suspected nodule in the
+transverse scan, the longitudinal scan will also be performed for fur-
+ther investigation. As displayed in Fig. 5a, we have achieved full
+autonomous scanning based on the fusion of force and visual infor-
+mation. Figure 5b shows the robotic scanning procedure for the right
+thyroid lobe of one participant. During the transverse scanning, we can
+see how the thyroid area increases ﬁrst and then decreases, beginning
+with the appearance of the upper pole and ending with the dis-
+appearance of the lower pole. Moreover, shadows were avoided and
+thyroid lobes were centered with control strategy. The contact force,
+probe position and probe orientation are shown in Fig. 5c. As illu-
+strated in Fig. 5c, noticeable ﬂuctuations in the force value are
+observed during the initial 20 s of the transverse scan. This phenom-
+enon arises as the US probe transitions from the middle of the thyroid
+toward the upper pole, following Bayesian optimization. The contact
+between the probe and the skin is affected by the surrounding thyroid
+cartilage at the upper pole, causing an unstable change in force during
+this movement. A similar instability is also observed during the scan-
+ning of the lower pole of the thyroid. Analysis of the probe’s position
+change reveals that FARUS maintains a constant speed in the Z-axis
+direction throughout the transverse scanning process. However, non-
+uniform adjustments occur in the Y and X directions, which are related
+to centering the thyroid gland. In the longitudinal scanning process, if
+multiple nodules are detected, their image features and location
+information are combined to determine whether these nodules were
+scanned during the transverse scanning process. This determination is
+achieved by matching the position of the nodules within the thyroid.
+For the evaluation of the US image quality, four evaluation metrics
+including conﬁdence map46
+, centering error, orientation error and
+image entropy were used to characterize the contact condition, thyr-
+oid visibility, orientation performance, and texture details of US image,
+respectively. From Fig. 5d–g, in the ﬁrst 20 s, the entropy value and
+conﬁdence value of the image increase as the probe makes contact
+with the patient, while the centering error and orientation error
+decrease. After 25 s, the mean value of the centering error of the image
+decreases to 0, indicating the completion of the thyroid search pro-
+cess and the image centering process. In the subsequent Bayesian
+optimization process, the entropy increase point is not distinctly
+visible due to variations in the optimization time for each patient. The
+centering error remain relatively stable between 25 and 100 s. After
+150 s, the mean square error of conﬁdence map, orientation error and
+image entropy increases, which is associated with the additional
+OPS phase.
+ACR TI-RADS risk stratiﬁcation using FARUS
+In this study, we present the FARUS system, designed for scanning,
+detection, and classiﬁcation of nodules in a sample of 19 patients. The
+ACR TI-RADS47
+is employed for nodule classiﬁcation based on their US
+characteristics. Additionally, we conduct a comparative analysis
+between FARUS-generated classiﬁcations and evaluations provided by
+professional sonographer. Figure 6a displays ﬁve nodules that
+demonstrate complete agreement with the sonographer’s diagnosis.
+Results from the scoring and classiﬁcation process by FARUS,
+following ACR TI-RADS criteria, are in Fig. 6b. To assess the echo-
+genicity, composition, and echogenic foci of the thyroid nodule, we
+analyze the distribution of pixels in the thyroid gland and the nodule
+(Fig. 6c). In Fig. 6b, the nodule’s composition is categorized as solid,
+leading to a score of 2, while its echogenicity is classiﬁed as hypo, also
+resulting in a score of 2. The nodule demonstrates a well-deﬁned
+boundary and a regular shape, contributing to a score of 0. Addition-
+ally, the comparison of height and weight exceeds 1, resulting in a
+score of 3. Lastly, no echogenic foci are observed within the nodule,
+leading to a score of 0. The total score amounts to 7, leading to the
+classiﬁcation of the nodule as level 5 or highly suspicious. Another
+example of a nodule has a mixed composition, leading to a score of 1,
+and its echogenicity as hypo, resulting in a score of 2. The nodule’s
+characteristic features, including a clear boundary and regular shape,
+warrant a score of 0 points. Additionally, the comparison of height and
+weight yields a score of 0 as it is less than 1. Furthermore, no presence
+of peripheral calciﬁcation within the nodule leading to a score of 0.
+Consequently, the cumulative score amounts to 3, classifying the
+nodule as level 3 or mildly suspicious.
+According to doctor’s evaluation, 17 individuals were found to have
+nodules, while 2 individuals showed no presence of nodules. Our
+developed system, FARUS, identiﬁed 13 individuals as having nodules
+and 6 individuals as having no nodules. The scoring and recommended
+management of 24 nodules among the 13 individuals detected by both
+FARUS and the doctor were compared. Each nodule detected by FARUS
+was matched to the doctor’s report based on its location and shape.
+Table 1 shows the comparison between FARUS and doctor scoring and
+the classiﬁcation of thyroid nodules (please refer to Supplementary
+Data 1 for more details). Among the 24 nodules assessed, 10 were
+diagnosed with the same score distribution by both the doctor and the
+developed FARUS. This can be attributed to the US image’s appropriate
+brightness and contrast, resulting in well-distributed pixels. Addition-
+ally, 8 nodules exhibited a score difference of 1, primarily attributed to
+discrepancies in echogenicity or composition classiﬁcations. There
+were four nodules with a score difference of 2 and another with a score
+difference of 4, possibly caused by different classiﬁcations in both
+echogenicity and composition. Nodule size variations in the scan may
+be attributed to differences in patient positioning: the doctor scans in a
+supine position, while FARUS scans in an upright sitting position due to
+security concerns. The doctor’s report indicates that out of the 19
+patients, one patient has two nodules requiring ﬁne-needle aspiration
+(FNA) and follow-up, respectively. For this patient, FARUS results were
+consistent with the doctor’s assessment. In the cases of the nodule #5,
+diagnostic inconsistency arose from variations in echo characteristics,
+leading to divergent recommended management.
+The main reason for the different classiﬁcations by FARUS is the
+use of a probe different from the one used by the doctor. The doctor’s
+probe consistently produces a speciﬁc color of the thyroid gland for
+each patient, while the brightness and contrast of US images produced
+by our probe may vary across different patients with varying ages and
+weights. The proposed FARUS system classiﬁed nodules, with com-
+plete agreement in 10 out of 24 cases with the doctor’s diagnosis.
+Furthermore, for the remaining nodules, the discrepancies were pri-
+marily limited to 1 score difference, mainly arising from variations in
+echogenicity and composition. Current volunteer participants typi-
+cally have low-risk nodules and clinical FNA is not recommended.
+Although FARUS has demonstrated feasibility and potentiality in
+nodule detection and data collection for ACR TI-RADS classiﬁcation,
+further clinical studies are essential to assess its safety as a screening
+tool for probably or deﬁnitely malignant nodules.
+Discussion
+Current US examination relies on sonographers to perform scanning
+operations. Patients often need to make an appointment for US
+examinations, resulting in long waiting times and often delays in
+Article https://doi.org/10.1038/s41467-024-48421-y
+Nature Communications| (2024)15:4004 8
+Fig. 5 | Fully autonomous ultrasound imaging. a The control strategy of FARUS.
+The autonomous scanning is achieved based on the fusion of force and visual
+information. b, c Evolution of force, probe position, and probe orientation for a
+patient with nodules during the experiment, which included the transverse scan-
+ning phase and longitudinal scanning phase. During the transverse scanning phase,
+the orientation of the probe at the end of the robot remained unchanged. Guided
+by the thyroid gland segmentation network, FARUS maintained the thyroid lobe in
+the center while moving the probe from the upper pole to the lower pole of the
+thyroid. When the nodule segmentation network detected a suspected nodule, the
+location of the suspected nodule was recorded. In the longitudinal phase, FARUS
+re-scannedthe suspected nodules from a different angleto determine whether they
+were lesions (please refer to Supplementary Movie 3 for additional details).
+d–g Performance of the scanned image quality of FARUS on 19 patients. The per-
+formance metrics for evaluating the US image quality included conﬁdence map,
+centering error, orientation error and image entropy. The shadowed area repre-
+sents mean ± SD over the different experiments, while the curves inside the sha-
+dowed areas are the average results. Source data are provided as a Source Data ﬁle.
+Article https://doi.org/10.1038/s41467-024-48421-y
+Nature Communications| (2024)15:4004 9
+treatment. At the same time, last decades have seen a rise in thyroid
+nodules. The detection and diagnosis of thyroid nodules still rely
+heavily on the expertise and experience of doctors. Compared with the
+traditional manual diagnosis or remote diagnosis, this fully autono-
+mous robotic system adopts a patient-centered concept, allowing the
+patient to be examined in a more comfortable way. Furthermore,
+FARUS is suitable for rapid screening in out-patient clinics and remote
+low-level centers asit enables scan autonomously without intervention.
+In this study, we developed an automated US diagnostic robot
+with artiﬁcial intelligence, which can accurately diagnose thyroid
+nodules. It is expected to be equipped not only in specialized hospitals,
+but also in clinics and remote areas. This non-invasive, rapid, and
+accurate screening strategy can provide an early warning of thyroid
+nodule development. The system operates on an autonomous scan-
+ning mode, a notable advantage of which is the no need of direct
+contact between medical staff and patients. This conﬁguration effec-
+tively minimizes the risk of transmitting infectious diseases between
+patients and healthcare providers.
+Currently, most US robotic systems studies do not include com-
+parisons with doctors, nor do they evaluate participants’ satisfaction.
+As shown in Table S1, we recruited 14 sonographers from 7 hospitals to
+make evaluations of our acquired transverse and longitudinal images,
+Fig. 6 | Scoring and classiﬁcation of thyroid nodules based on ACR-TIRADS.
+a Indicative nodules identiﬁed with FARUS and the respective US images provided
+by doctors. b Examples of two separate nodules, with accompanying explanations
+of their TIRADS scores. c Correlation between number of pixels over brightness in
+thyroid image. Source data are provided as a Source Data ﬁle.
+Article https://doi.org/10.1038/s41467-024-48421-y
+Nature Communications| (2024)15:4004 10
+assigning scores quantiﬁed into ﬁve levels ranging from 1 to 5. Speci-
+ﬁcally, a score of 1 denoted “very poor”, 2 denoted “poor”, 3 denoted
+“medium”, 4 denoted “good”, and 5 denoted “very good” image qual-
+ity. It shows that the images acquired by the FARUS have good quality,
+centrality and integrity. According to Fig. 7, most participants who
+took part in the scanning felt safe with our system and experienced no
+adverse reactions, such as pain and other discomfort. Certain
+participants expressed feelings of anxiety regarding the robot scan
+and harbored concerns regarding its safety. The majority of the par-
+ticipants expressed that US robots cannot replace doctors, primarily
+due to doctors’ possession of a vast repository of medical knowledge,
+which the robots lack at the current moment. Moreover, doctors
+occupy a pivotal position as esteemed medical experts and trust-
+worthy sources of aid.
+Table 1 | Comparison of thyroid nodule scoring and recommendation between FARUS and doctor based on ACR TI-RADS
+No Name Nodule Size Diagnosed by Composition Echogenicity Margin Shape Echogenicity foci Total Difference Recommendation
+1 Patient 1 #1 3.9 mm FARUS 2 2 0 3 0 7 0 No FNA
+3.2 mm Doctor 2 2 0 3 0 7 No FNA
+2 Patient 2 #2 3.0 mm FARUS 2 2 0 0 0 4 2 No FNA
+4.5 mm Doctor 1 1 0 0 0 2 No FNA
+3 Patient 3 #3 6.6 mm FARUS 0 0 0 0 0 0 0 No FNA
+6.9 mm Doctor 0 0 0 0 0 0 No FNA
+4 Patient 3 #4 5.9 mm FARUS 2 1 0 0 0 3 1 No FNA
+6.1 mm Doctor 1 1 0 0 0 2 No FNA
+5 Patient 4 #5 12.4 mm FARUS 2 2 0 0 0 4 1 Follow-up
+12.8 mm Doctor 2 1 0 0 0 3 No FNA
+6 Patient 5 #6 4.2 mm FARUS 2 2 0 0 0 4 4 No FNA
+3.4 mm Doctor 0 0 0 0 0 0 No FNA
+7 Patient 5 #7 6.9 mm FARUS 2 1 0 0 0 3 0 No FNA
+6.9 mm Doctor 1 2 0 0 0 3 No FNA
+8 Patient 6 #8 6.2 mm FARUS 1 2 0 0 0 3 1 No FNA
+5.5 mm Doctor 1 1 0 0 0 2 No FNA
+9 Patient 7 #9 6.7 mm FARUS 1 2 0 0 0 3 0 No FNA
+7.8 mm Doctor 1 2 0 0 0 3 No FNA
+10 Patient 7 #10 7.3 mm FARUS 2 2 0 0 0 4 1 No FNA
+7.2 mm Doctor 1 2 0 0 0 3 No FNA
+11 Patient 7 #11 6.6 mm FARUS 2 2 0 0 0 4 2 No FNA
+6.2 mm Doctor 1 1 0 0 0 2 No FNA
+12 Patient 7 #12 1.8 mm FARUS 2 2 0 0 0 4 2 No FNA
+2.4 mm Doctor 1 1 0 0 0 2 No FNA
+13 Patient 7 #13 3.1 mm FARUS 2 2 0 0 0 4 2 No FNA
+2.8 mm Doctor 1 1 0 0 0 2 No FNA
+14 Patient 8 #14 7.8 mm FARUS 1 2 0 0 0 3 1 No FNA
+7.6 mm Doctor 1 1 0 0 0 2 No FNA
+15 Patient 8 #15 4.3 mm FARUS 1 1 0 0 0 2 0 No FNA
+4.4 mm Doctor 1 1 0 0 0 2 No FNA
+16 Patient 8 #16 7.1 mm FARUS 1 1 0 0 0 2 0 No FNA
+7.5 mm Doctor 1 1 0 0 0 2 No FNA
+17 Patient 8 #17 1.7 mm FARUS 1 1 0 0 0 2 0 No FNA
+1.9 mm Doctor 1 1 0 0 0 2 No FNA
+18 Patient 8 #18 3.1 mm FARUS 1 1 0 0 0 2 0 No FNA
+4.1 mm Doctor 1 1 0 0 0 2 No FNA
+19 Patient 9 #19 18.6 mm FARUS 1 2 0 0 0 3 0 Follow-up
+19.1 mm Doctor 1 2 0 0 0 3 Follow-up
+20 Patient 9 #20 10.4 mm FARUS 1 2 0 0 2 5 0 FNA
+10.6 mm Doctor 1 2 0 0 2 5 FNA
+21 Patient 10 #21 5.8 mm FARUS 1 2 0 0 0 3 1 No FNA
+8.2 mm Doctor 1 1 0 0 0 2 No FNA
+22 Patient 11 #22 3.0 mm FARUS 1 2 0 0 0 3 1 No FNA
+3.6 mm Doctor 1 1 0 0 0 2 No FNA
+23 Patient 12 #23 17.0 mm FARUS 2 1 0 0 0 3 0 No FNA
+18.2 mm Doctor 2 1 0 0 0 3 No FNA
+24 Patient 13 #24 8.9 mm FARUS 2 1 0 0 0 3 1 No FNA
+9.7 mm Doctor 1 1 0 0 0 2 No FNA
+Article https://doi.org/10.1038/s41467-024-48421-y
+Nature Communications| (2024)15:4004 11
+To compare the image quality of robotic US scans with that of
+manual scans, we invited ﬁve doctors with between 3 and 15 years of
+experience to scan the thyroids of 13 participants. In Fig. 8a, the
+FARUS completed transverse and longitudinal scanning in the same
+manner as a doctor. In the OPS phase, FARUS can detect suspected
+nodules as well as cover the carotid arteries. During the IPS phase, the
+FARUS was able to scan a continuous area from the upper pole to the
+lower pole of the thyroid gland, while ensuring that the thyroid gland
+was centered. As shown in Fig. 8b–e, there is still variation among
+doctors when using entropy, center error, mean conﬁdence, and left-
+right intensity symmetry (LRIS) as image evaluation metrics. Speci-
+ﬁcally, LRIS refers to the ratio of gray scale distribution between the
+left and right sides of US images. Therefore, we performed a com-
+parative analysis of ﬁve doctors as a group with robot performance.
+Figure 8f–i shows some similarity in the evaluation metrics between
+the robot and the doctors for both the IPS and OPS phase. The cen-
+tering error of the IPS phase of robotic US scans is smaller than that
+observed in scans conducted by ﬁve doctors. This difference can be
+attributed to the robot control process. Additionally, differences in
+scanning method and range may also contribute to differences in
+entropy value, mean conﬁdence, and image grayscale distribution
+between robot and doctors.
+We also compared the probe motion of the robotic scanning
+with that of manual scanning. The probe motion data during doctors’
+scanning process were recorded with a probe motion sensor. As
+compared to manual scanning, the robotic scanning was more stable
+in terms of force and velocity, as in Table S2. In general, humans were
+more efﬁcient than FARUS. The FARUS took 213.0 ± 85.3 s to com-
+plete a single thyroid lobe scan for 70 participants, while ﬁve doctors
+spent 67.2 ± 27.6 s to complete the scan for 13 participants. These
+differences can be attributed to dynamic path planning and force-
+controlled feedback, the former to compensate the motion and the
+latter to ensure participants’ comfort. Moreover, a conservative
+speed is implemented in our FARUS system to ensure the safety of
+participants.
+The FARUS comprises three primary stages: scanning, detection,
+and classiﬁcation, each of which plays a crucial role in inﬂuencing
+FARUS’s performance. During the detection stage, the main challenge
+faced by FARUS in detecting nodules is primarily attributed to the size
+and echogenicity of the nodules. Table 2 shows missed and possible
+false positive thyroid nodules detected by FARUS. The results of this
+study indicate that smaller nodules, such as #25, #26, #27, #28, #29
+and #30 present greater difﬁculty for FARUS to detect. Similarly,
+nodules with isogenic properties, such as #31 and #32, also pose
+challenges for FARUS’s detection capabilities. Moreover, the FARUS
+identiﬁed some nodules for which the doctor did not (#33, #34, #35
+and #36). We sought opinions from multiple doctors and a ﬁrm con-
+clusion could not be reached by doctors. In an exercise of prudence,
+we considered these occurrences as possibly false positives.
+The FARUS needs improvement in the future due to its limitations,
+especially for small-scale and low-contrast nodules. The existing nodule
+dataset lacks sufﬁcient diversity in terms of nodule size. Artifacts in
+ultrasound images were not considered in our current algorithm.
+Additionally, work needs to be done to incorporate video streams.
+Methods
+Human participants and safety
+All experiments with human participants were performed with the
+approval of the Guangzhou First People’s Hospital Review Board
+(K-2021-131-04). Our researchers explained the entire process to all
+participants, and all participants signed an informed consent form.
+Furthermore, we obtained consent from participants conﬁrming their
+understanding of the open access nature of this journal.
+With the approval of the ethical review committee, we recruited of
+three distinct groups of participants. The participants were over
+18 years old, and of both sexes. None of the participants had following
+cases: (1) neck trauma or failure to heal after surgery; (2) inability to
+maintain a stable head position;(3) history of US gel allergies; (4) his-
+tory of surgical resection of both thyroid lobes. The ﬁrst group pre-
+dominantly comprised college students, and we manually collected
+thyroid US data from 66 volunteers within this group using handheld
+US equipment. Simultaneously, we employed FARUS system to
+autonomously scan 70 volunteers (20–30 years of age, 19 females,
+41 males), 13 of whom were scanned manually by 5 doctors. To address
+the limitations of handheld US equipment in accurately diagnosing
+nodules, we opted to employ portable US equipment to gather two
+additional sets of data. The second set of data was obtained from
+thyroid US scans of 29 middle-aged and elderly individuals within the
+community, chosen speciﬁcally to facilitate the training of the nodule
+segmentation network. Finally, the third group was composed of 19
+patients (age 53.05 ± 5.90 years old, 12 females, 7 males) who under-
+went robotic thyroid scanning. This group played a pivotal role in
+verifying the diagnostic performance of our FARUS system. The
+recruitment bias primarily arises from the geographic scope of
+recruitment, limited to a speciﬁc region in China.
+To ensure the safety of the participants, these ﬁve approaches
+were implemented in the FARUS system: (1) All the participants needed
+to complete an US gel allergy test before thyroid scanning. (2) The
+FARUS system used the UR3 collaborative robot, which will stop by
+itself in the event of a collision and a safety staff has been monitoring
+the operation of the robot arm. (3) We limited the working area of the
+robot arm (R < 45 cm), and once it crosses the working area, it will be
+forcibly stopped. (4) We set the contact force between 2.0 N and 4.0 N
+to ensure adequate contact with the skin and to prevent pressure-
+induced distortion of the thyroid anatomy. If the force exceeds 4.5 N,
+the robot will be automatically stopped. 5. The chair that participants
+used during scanning had wheels so that participants could move back
+if they felt uncomfortable.
+Fig. 7 | Subjective Evaluation of FARUS Scanning Through Questionnaire Assessment. A clear trend of agreement or disagreement is more obvious when the entire bar
+(100%) is shifted left or right (n = 70). Source data are provided as a Source Data ﬁle.
+Article https://doi.org/10.1038/s41467-024-48421-y
+Nature Communications| (2024)15:4004 12
+Thyroid modeling
+For the estimation of the thyroid scanning range, we obtained the head
+and neck CT images from the Southern Hospital of Southern Medical
+University. Those contrast-enhanced CT images were used to establish
+the 3D model of the thyroid. We selected 500 contrast-enhanced CT
+sequences from patients with thickness ranging from 0.625 mm to
+0.9 mm for modeling. This included 250 male and 250 female patients,
+aged between 7 and 82. The CT images were acquired with Philips
+Fig. 8 | Evaluation of US scans collected by the FARUS and ﬁve doctors. a The in-
+plane/out-of-plane US image sequences acquired by the FARUS and ﬁve experi-
+enced doctors on the same two participants. The green contour in the US images
+represent the segmented suspicious nodules by our proposed VariaNet, while the
+yellow contour represent the segmented thyroid lobe by our pre-trained gland
+segmentation model. b–e Violin plots illustrating the four evaluation metrics
+between FARUS and ﬁve doctors. Dashed line indicates median; dotted lines indi-
+cate 25th and 75th percentiles; n = 13 participants. f–i Boxplots displaying the four
+evaluation metrics between FARUS and ﬁve doctors. ROPS robotic out of-plane
+scanning, DOPS doctor out-of-plane scanning, RIPS robotic in-plane scanning, DIPS
+doctor in-plane scanning, LRIS left–right intensity symmetry. The top, middle, and
+bottom boundaries of the boxplots represent 25th, 50th, and 75th percentile,
+respectively; the small squares represent the mean. Outliers deﬁned when value
+larger than 1.5*IQR + 75th percentile; n = 13 participants; p value obtained with
+bootstrap tests; ****p < 0.0005. Source data are provided as a Source Data ﬁle.
+Article https://doi.org/10.1038/s41467-024-48421-y
+Nature Communications| (2024)15:4004 13
+Gemini TF PET/CT scanner, and the resolution of the acquired DICOM
+data is 512 × 512. We used samples that represented all age group
+populations and covered people with body mass index (BMI) ranging
+from 17.1 to 27.8.
+We deﬁned 60 marker points to label the thyroid gland (see Fig. S1).
+They were 2 points above and below the isthmus of the thyroid; 8 points
+in the sagittal plane of the left and right lobes of the thyroid; and 2 points
+on the left and right of the entire thyroid cross-section; for the left and
+right lobes of the thyroid above the isthmus. The height is divided into
+ﬁve equal parts, and 4 points are marked on the upper, lower, left, and
+right sides of the 4 cross-sections, for a total of 32 points; After manually
+marking all the key points, ourcustom Python program will generatea 3D
+model and measure the average measurements of the various parts.
+Through this model, we obtained the morphological data of the thyroid.
+The average height of thyroid gland was 4.76 (±0.57) cm, and the average
+unilateral leaf width and thickness was 1.48 (±0.34) cm and 1.52 (±0.22)
+cm, respectively. Through regression analysis, we found that the width,
+length, thickness, and volume of the thyroid gland had very low corre-
+lations with gender, age, height, and weight. For this reason, the scan
+length was set to 6.47 cm based on the 3σ rule, and the scan width was set
+to 5.48 cm that was the probe width of 4.0 cm plus the average
+thyroid width.
+Thyroid gland and nodule segmentation
+We introduce a novel architecture called VariaNet, speciﬁcally
+designed for thyroid and nodule segmentation, as illustrated in Fig. 2a.
+The VariaNet architecture consists of two main models: the ﬁrst model
+is responsible for thyroid gland segmentation, utilizing ResNet1848
+as
+the encoder and UNet as the decoder. Our training dataset, SCUTG8K,
+is employed for training this model, using the dice loss as loss function.
+The second model, focused to nodule segmentation, uses ResNeXt 50
+as the encoder and UNet as the decoder, integrating a custom loss
+function. Due to dataset variations from different US probes, the
+training process for thyroid nodule segmentation is divided into two
+stages. Initially, we use TN3K49
+and our dataset, SCUTN10K, as the
+thyroid nodule image dataset for training the model. The second phase
+involves the application of transfer learning. During this phase, we use
+our dataset, SCUTN1K, which is generated using our speciﬁc probe, to
+train the thyroid nodule model.
+To improve the segmentation performance of solid nodules, we
+introduce two tailor-made loss functions. Firstly, the feature loss
+function assigns higher weights to the isogenic part within the nodules’
+area. This attention mechanism, represented by the Gaussian mask of
+the image, allows VariaNet to focus on the isogenic region within the
+nodule, consequently enhancing the segmentation results. The
+deﬁnition of the feature loss is as follows:
+Lf eat = 1 
+d
+pred \ gt
+d
+pred ∪ gt
+d
+pred = WGauss
+ Npred
+WGauss
+= 1  e
+
+gtgavg
+ð Þ
+2
+2gstd
+2
+ð1Þ
+where Npred represent the prediction of the nodule mask, and gt
+denote the ground truth of the nodule mask. The variables gavg and
+gstd correspond to the mean and standard value, respectively, of the
+gland lobe intensity derived from the pseudo label, as illustrated in
+Fig. 2a. The second loss function used is called distance loss. The pri-
+mary objective of this loss function is to assign increased weights to
+the false positives present in the model’s prediction mask. The Dis-
+tance Loss is constructed based on a distance mask that is calculated
+using the distances to the pseudo gland label. It is deﬁned as:
+Ldist = Wdist
+Gpred ð2Þ
+Wdist
+=
+0 p 2 Gpred
+minðxb,ybÞ 2 Boundary
+ﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃﬃ
+ðxp  xbÞ2
++ ðyp  ybÞ2
+q
+p =
+2 Gpred
+8
+<
+:
+ð3Þ
+where Gpred represent the prediction of the gland mask, and xb,yb
+ 
+denote the boundary of the gland mask. The fundamental insight
+underlying this loss function is that the thyroid nodule mask must be
+spatially conﬁned within or precisely aligned with the boundaries of the
+thyroid gland mask. Figure 2a shows feature loss presented by the
+gaussian mask, IoU loss and Distance Loss presented by Distance mask.
+By combining feature loss, distance loss and IoU loss, we develop iso-
+hybrid loss for segmentation in the three-level aspect echogenicity-,
+position- and map-level, which able to capture three aspects of
+segmentation. The iso-hybrid loss is deﬁned as:
+LIsoHy = Liou + αLf eat + βLdist ð4Þ
+The framework is implemented using PyTorch 1.10.0 with CUDA
+11.3 support. When the ImageNet pre-trained encoder is accessible, it is
+employed to initialize the model’s weights. During training, a batch
+size of 8 is utilized, and the ADAM optimizer is employed to optimize
+the model for a total of 40 epochs.
+Table 2 | Missed and possible false positives thyroid nodules detected by FARUS
+No Name Nodule Size Diagnosed by Composition Echogenicity Margin Shape Echogenicity foci Total Recommendation
+1 Patient 14 #25 4 mm Doctor 2 1 0 0 0 3 No FNA
+2 Patient 14 #26 3.7 mm Doctor 2 2 0 0 0 4 No FNA
+3 Patient 15 #27 2 mm Doctor 1 2 0 0 0 3 No FNA
+4 Patient 9 #28 3 mm Doctor 1 1 0 0 0 2 No FNA
+5 Patient 13 #29 3 mm Doctor 0 0 0 0 0 0 No FNA
+6 Patient 16 #30 2.3 mm Doctor 0 0 0 0 0 0 No FNA
+7 Patient 17 #31 4.7 mm Doctor 1 1 0 0 0 2 No FNA
+8 Patient 8 #32 23 mm Doctor 2 1 0 0 0 3 No FNA
+9 Patient 14 #33 4.5 mm FARUS 2 1 0 0 0 3 No FNA
+10 Patient 14 #34 7.0 mm FARUS 2 2 0 0 0 4 No FNA
+11 Patient 2 #35 5.5 mm FARUS 2 1 0 0 0 3 No FNA
+12 Patient 2 #36 11.0 mm FARUS 1 2 0 3 0 6 Follow-up
+Article https://doi.org/10.1038/s41467-024-48421-y
+Nature Communications| (2024)15:4004 14
+Scan planning
+We used the Microsoft Azure Kinect DK depth camera to produce an
+initial scanning plan. We set up a Kinect camera at a distance of about
+1.2 m from the seat, a height of about 1.5 m, and a 45° angle to the front
+of the seat. The camera acquisition parameters were set as: the color
+camera was set to a resolution of 1280 × 720, and the ﬁeld of view was
+90° × 59°; the depth camera was set to WFOV 2 × 2 binned, the reso-
+lution was 512 × 512, and the ﬁeld of view was 120° × 120°; The frame
+rate was set to 30 FPS. We estimated the thyroid location using the
+neck and head skeleton joint points. Given variations in thyroid anat-
+omy among populations, we introduced a process to locate the thyroid
+lobe. This involved utilizing ultrasound guidance and image segmen-
+tation for precise determination of its position.
+The robotic scanning involved switching between IPS and OPS
+phases, as mentioned in the “System design for autonomous ultrasound
+imaging” section. The IPS phase started with an optimized initial
+orientation achieved through Bayesian optimization. Inspired by the IPS
+procedure introduced in ref. 34, the probe then scanned upward and
+downward until both ends of the thyroid lobe were no longer visible in
+the segmentation image. During the IPS phase, VariaNet recorded sus-
+picious nodule locations, guiding the subsequent OPS phase. To simu-
+late doctors’ multi-view scanning, the OPS phase begins with a 60°
+probe rotation, followed by movement along the principal axis, cover-
+ing a range of 12 mm. The image-based probe adjustment was achieved
+by calculating the intensity distribution of the US image as well as the
+center of mass in the segmentation mask, which enabled to prevent
+shadowing and keep the thyroid lobe in the center of the image.
+Robotic scanning
+The platform consisted of a UR3 robot that was a six-degree-of-
+freedom robotic arm with a repeatability of 0.1 mm, a working radius
+of 500 mm, and a maximum load of 3 kg. We used the real-time port
+for monitoring, which fed back the status of the robot arm ata speed of
+125 Hz. For general robotic arm commands, such as motion com-
+mands, we sent them through the secondary port, which received
+commands at 10 Hz. Moreover, we used SolidWorks to design a ﬁxture
+for the probe, which was 3D printed with photosensitive resin. To
+avoid excessive pressure on the participants, we attached the US probe
+to the robot ﬂange with four ﬂexible spring-loaded connection
+(Fig. S2). And the length of the entire robot end effector was 242 mm.
+We used a SonoStar C5 Laptop Color Doppler Ultrasound System. This
+US depth was between 18 mm and 184 mm, the US frequency range
+was 6.5 MHz to 10 MHz. The original US data had a resolution of
+512 × 512 and were stored in the AVI format.
+Prior to scanning, participants assumed a seated position on a
+chair and adjusted their posture. Subsequently, the Kinect camera
+captured a depth map, which was then employed to generate a 3D
+point cloud of the environment. This point cloud underwent analysis
+for real-time detection and tracking of the human body joints by the
+Kinect body-tracking algorithm50
+. Then the position of the thyroid was
+estimated based on spatial information derived from tracked human
+skeleton joints. The robot approaches the pre-estimated position at a
+speed of 10 mm/s. When the distance between the probe and partici-
+pant is approximately less than 200 mm, the speed of robot end
+effector will be reduced to 5 mm/s. The FARUS started scanning pro-
+cedure when the probe reaches the pre-determined position and the
+force is in the range of 2.0 N to 4.0 N. During the scanning process, the
+participant was allowed to move slightly and the robot was able to
+adapt to the participant’s movement through the force control and
+image servo. However, the scanning will be terminated if FARUS
+detects that the participant moves more than 2 cm left or right within
+1 s, or 5 cm forward or backward. We chose the Robotiq FT300-S as the
+force/torque sensor. Its maximum range was Fx = Fy = Fz = ± 300N, and
+the sensor signal noise was 0.1 N. The control terminal read force
+information in real time at a speed of 100 Hz.
+Control strategy
+During robotic scanning, the control strategy we developed allows us to
+adjust the position and orientation of the probe autonomously. The US
+probe has a total of six degrees of freedom that can be adjusted. As
+illustrated in Fig. 5a, force control can be used to control one degree of
+freedom: the amount of translation of the robot in the Yp direction. The
+degree of freedom of US probe rotation around the Yp axis is controlled
+by switching between transverse and longitudinal views. Bayesian
+optimization is applied to control the rotational degrees of freedom of
+the probe around the Zp axis. The remaining three degrees of freedom
+are determined by the US image. Degrees of freedom in the Xp axis and
+Zp axis translation of the US probe are controlled by the image seg-
+mentation results. While the degree of freedom of US probe rotation
+around the Xp axis is controlled by image intensity distribution.
+Keeping the contact force applied to the body under control is
+vital to the safety of the participants. The external forces f and torques
+τ measured in the force sensor frame F is a 6-D vector H = ðf T
+τT
+Þ. The
+force/torque vector in the probe frame P can be written as:
+p
+Hp = p
+Ff ðH  f
+Fg
+g
+HgÞ ð5Þ
+where g
+Hg 2 R6
+is the gravity force of the US probe, and represent the
+transformation matrix from frame F to frame P and the transforma-
+tion matrix from the probe’s inertial frame to frame F, respectively.
+Our objective is to control the force along the y-axis in the probe frame
+P, we deﬁne the target contact force as:
+tf = Sy
+p
+Hp ð6Þ
+where Sy = (0 1 0 0 0 0). According to the visual servo control law
+_
+s = Lsvc
+51
+, the control law for the force control task is given by:
+vf = 
+λf
+k
+ðSy
+p
+Ff ðH  f
+Fg
+g
+HgÞ  t*
+f ÞST
+y
+ð7Þ
+where λf is the force control gain, t*
+f is the desired force value and k is
+the human tissues stiffness that is usually set in [125, 500] N/m
+according to ref. 52.
+The sweeping trajectory T is deﬁned by N waypoints
+w0,w1, .. . ,wn
+ 
+and a speed v to travel along the trajectory. The
+waypoint w0 is deﬁned as the position where the probe orientation is
+optimized after Bayesian optimization procedure. In the case of scan-
+ning toward the upper or lower poles of the thyroid, the next waypoint
+wi would be a stride from the previous waypoint wi1. The position and
+orientation of the probe is adjusted after each step of movement by: (1)
+a translation along the Yp axis to achieve sufﬁcient contact between the
+probe and the neck. (2) a translation along the Zp axis to ensure that the
+segmented thyroid is located in the center of US image. (3) A sideway
+correction to avoid the shadowing. Similar to ref. 34, the image-based
+sideway correction is carried out in an iterative manner:
+Rstep =
+1 0 0
+0 cosðθstepÞ sinðθstepÞ
+0 sinðθstepÞ cosðθstepÞ
+2
+6
+4
+3
+7
+5 ð8Þ
+Rn = Rstep  Rn1 ð9Þ
+where Rstep is the rotation matrix deﬁned by the rotation adjustment
+step of θstep in the Yp-Zp plane, Rn represents the probe orientation
+after n adjustments.
+Thyroid nodules scoring and classiﬁcation
+The ACR TI-RADS is a risk stratiﬁcation system designed to help radi-
+ologists categorize thyroid nodules based on their US characteristics47
+.
+Article https://doi.org/10.1038/s41467-024-48421-y
+Nature Communications| (2024)15:4004 15
+It provides a standardized way to assess the risk of malignancy for
+thyroid nodules, which can then guide the management and follow-up
+recommendations for patients. Figure 6b illustrates a sample outcome
+obtained from the ACR-TIRADS calculation:
+(1) Echogenicity, composition and echogenic foci: to assess the
+echogenicity, composition, and echogenic foci of the thyroid
+nodule, we analyze the distribution of pixels in the thyroid gland
+and the nodule, as depicted in Fig. 6c. Initially, we create a smooth
+line graph representing the pixel distribution in the thyroid gland
+and calculate the line average of the number of pixels. By selecting
+thyroid gland pixels above this line average, we determine the
+mean and standard deviation. Using the same method, we identify
+thyroid nodule pixels and calculate the percentage of echogeni-
+city, composition, and presence of echogenic foci based on spe-
+ciﬁc boundaries, such as cystic, hypo-genicity, iso-genicity, hyper-
+genicity, and calciﬁcation.
+(2) Margin and shape: the determination of the thyroid nodule’s
+margin involves two factors. Firstly, we consider the boundary line
+of the nodule, assessing distinctive pixels on its outer and inner
+edges. This factor is calculated by determining the mean standard
+deviation of 10 perpendicular pixels along each pixel of the
+nodule’s boundary line (5 inner pixels + 1 mid pixel + 5 outer pix-
+els). Secondly, we analyze the shape of the boundary line by cal-
+culating the intersection over union (IoU) between the nodule and
+the ﬁtted ellipse. The aspect ratio is another important shape
+characteristic, indicating the ratio of depth to width and revealing
+whether the nodule appears taller-than-wide. This aspect ratio
+provides valuable insight into the tumor’s growth pattern and is
+associated with an elevated risk of malignancy if it is higher.
+Statistics and reproducibility
+No statistical method was used to predetermine sample size. To assess
+the robotic image quality of US scans, we employed the FARUS system
+to autonomously scan 70 college students (n = 70). Additionally, to
+investigate the diagnostic performance of our FARUS system, robotic
+thyroid scanning was performed on 19 patients (n = 19). Overall, the
+robotic thyroid scans were successfully performed on 89 participants.
+Additionally, a transparent reporting of a multivariable prediction
+model for individual prognosis or diagnosis (TRIPOD) checklist is
+provided as Supplementary Table S3.
+Reporting summary
+Further information on research design is available in the Nature
+Portfolio Reporting Summary linked to this article.
+Data availability
+The main data generated in this study have been deposited in the github:
+https://github.com/Ciel04sk/SCUT_Thyroid_DataSet/tree/main53
+. The
+graph and table data within this work are provided in the Supplementary
+Information/Source Data ﬁle. Source data are provided with this paper.
+Code availability
+The code for this study have been deposited in the github: https://
+github.com/Ciel04sk/SCUT_Thyroid_DataSet/tree/main53
+.
+References
+1. Beutel, J., Kundel, H. L., Kim, Y., Van Metter, R. L. & Horii, S. C.
+Handbook of Medical Imaging (SPIE Press, 2000).
+2. Rykkje, A., Carlsen, J. F. & Nielsen, M. B. Hand-held ultrasound
+devices compared with high-end ultrasound systems: a systematic
+review. Diagnostics 9, 61 (2019).
+3. Ghanem, M. A. et al. Noninvasive acoustic manipulation of objects
+in a living body. Proc. Natl Acad. Sci. 117, 16848–16855 (2020).
+4. Zhang, Q. et al. Deep learning to diagnose Hashimoto’s thyroiditis
+from sonographic images. Nat. Commun. 13, 1–8 (2022).
+5. Zhou, W. et al. Ensembled deep learning model outperforms
+human experts in diagnosing biliary atresia from sonographic
+gallbladder images. Nat. Commun. 12, 1–14 (2021).
+6. Zachs, D. P. et al. Noninvasive ultrasound stimulation of the spleen
+to treat inﬂammatory arthritis. Nat. Commun. 10, 1–10 (2019).
+7. Swerdlow, D. R., Cleary, K., Wilson, E., Azizi-Koutenaei, B. & Mon-
+faredi, R. Robotic arm-assisted sonography: review of technical
+developments and potential clinical applications. Am. J. Roent-
+genol. 208, 733–738 (2017).
+8. Monfaredi, R. et al. Robot-assisted ultrasound imaging: overview
+and development of a parallel telerobotic system. Minim. Invasive
+Ther. Allied Technol. 24, 54–62 (2015).
+9. Jiang, Z. et al. Automatic normal positioning of robotic ultrasound
+probe based only on conﬁdence map optimization and force
+measurement. IEEE Robot. Autom. Lett. 5, 1342–1349 (2020).
+10. Kojcev, R. et al. On the reproducibility of expert-operated and
+robotic ultrasound acquisitions. Int. J. Comput. Assist. Radiol. Surg.
+12, 1003–1011 (2017).
+11. Bouvet, L. & Chassard, D. Ultrasound Assessment of Gastric Con-
+tents in Emergency Patients Examined in the Full Supine Position: An
+Appropriate Composite Ultrasound Grading Scale can Finally be
+Proposed (Springer, 2020).
+12. Leenhardt, L. et al. 2013 European Thyroid Association guidelines
+for cervical ultrasound scan and ultrasound-guided techniques in
+the postoperative management of patients with thyroid cancer. Eur.
+Thyroid J. 2, 147–159 (2013).
+13. Haidegger, T. Autonomy for surgical robots: concepts and para-
+digms. IEEE Trans. Med. Robot. Bionics 1, 65–76 (2019).
+14. Yang, G.-Z. et al. Medical robotics—regulatory, ethical, and legal
+considerations for increasing levels of autonomy. Sci. Robot. 2,
+eaam8638 (2017).
+15. Wang, J. et al. Application of a robotic tele-echography system for
+Covid-19 pneumonia. J. Ultrasound Med. 40, 385–390 (2021).
+16. Aggravi, M., Estima, D. A., Krupa, A., Misra, S. & Pacchierotti, C.
+Haptic teleoperation of ﬂexible needles combining 3d ultrasound
+guidance and needle tip force feedback. IEEE Robot. Autom. Lett. 6,
+4859–4866 (2021).
+17. Wu, S. et al. Pilot study of robot-assisted teleultrasound based on
+5 g network: a new feasible strategy for early imaging assessment
+during Covid-19 pandemic. IEEE Trans. Ultrason. Ferroelectr. Freq.
+Control 67, 2241–2248 (2020).
+18. Tsumura, R. et al. Tele-operative low-cost robotic lung ultrasound
+scanning platform for triage of Covid-19 patients. IEEE Robot.
+Autom. Lett. 6, 4664–4671 (2021).
+19. Edwards, T. et al. First-in-human study of the safety and viability of
+intraocular robotic surgery. Nat. Biomed. Eng. 2, 649–656 (2018).
+20. Chatelain, P., Krupa, A. & Navab, N. Optimization of ultrasound image
+quality via visual servoing. In 2015 IEEE International Conference on
+Robotics and Automation (ICRA), 5997–6002 (IEEE, 2015).
+21. Chatelain, P., Krupa, A. & Navab, N. Conﬁdence-driven control of an
+ultrasound probe. IEEE Trans. Robot. 33, 1410–1424 (2017).
+22. Fu, Y., Lin, W., Yu, X., Rodríguez-Andina, J. J. & Gao, H. Robot-
+assisted teleoperation ultrasound system based on fusion of aug-
+mented reality and predictive force. IEEE Trans. Ind. Electron. 70,
+7449–7456 (2023).
+23. Martin, J. W. et al. Enabling the future of colonoscopy with intelli-
+gent and autonomous magnetic manipulation. Nat. Mach. Intell. 2,
+595–606 (2020).
+24. Tsumura, R. & Iwata, H: Robotic fetal ultrasonography platform with
+a passive scan mechanism. Int. J. Comput. Assist. Radiol. Surg. 15,
+1323–1333 (2020).
+25. Welleweerd, M. K., de Groot, A. G., de Looijer, S., Siepel, F. J. &
+Stramigioli, S. Automated robotic breast ultrasound acquisition
+using ultrasound feedback. In 2020 IEEE International Conference
+on Robotics and Automation (ICRA), 9946–9952 (IEEE, 2020).
+Article https://doi.org/10.1038/s41467-024-48421-y
+Nature Communications| (2024)15:4004 16
+26. Huang, Y. et al. Towards fully autonomous ultrasound scanning
+robot with imitation learning based on clinical protocols. IEEE
+Robot. Autom. Lett. 6, 3671–3678 (2021).
+27. Huang, Q., Wu, B., Lan, J. & Li, X. Fully automatic three-dimensional
+ultrasound imaging based on conventional B-scan. IEEE Trans.
+Biomed. Circuits Syst. 12, 426–436 (2018).
+28. Tan, J. et al. Fully automatic dual-probe lung ultrasound scanning
+robot for screening triage. IEEE Trans. Ultrason. Ferroelectr. Freq.
+Control. 70, 975–988 (2022).
+29. Li, K., Li, A., Xu, Y., Xiong, H. & Meng, M. Q.-H. RL-TEE: autonomous
+probe guidance for transesophageal echocardiography based on
+attention-augmented deep reinforcement learning. IEEE Trans.
+Autom. Sci. Eng. 21, 1526–1538 (2023).
+30. Wang, Z. et al. Full-coverage path planning and stable interaction
+control for automated robotic breast ultrasound scanning. IEEE
+Trans. Ind. Electron. 70, 7051–7061 (2023).
+31. Suligoj, F., Heunis, C. M., Sikorski, J. & Misra, S. Robust–an auton-
+omous robotic ultrasound system for medical imaging. IEEE Access
+9, 67456–67465 (2021).
+32. Jiang, Z. et al. Autonomous robotic screening of tubular structures
+based only on real-time ultrasound imaging feedback. IEEE Trans.
+Ind. Electron. 69, 7064–7075 (2022).
+33. Zhan, J., Cartucho, J. & Giannarou, S. Autonomous tissue scanning
+under free-form motion for intraoperative tissue characterisation. In
+2020 IEEE International Conference on Robotics and Automation
+(ICRA), 11147–11154 (IEEE, 2020).
+34. Zielke, J. et al. RSV: Robotic sonography for thyroid volumetry. IEEE
+Robot. Autom. Lett. 7, 3342–3348 (2022).
+35. Kharchenko, V. P et al. Ultrasound Diagnostics of Thyroid Diseases
+(Springer, New York, 2010).
+36. Deng, X., Chen, Y., Chen, F. & Li, M. Learning robotic ultrasound
+scanning skills via human demonstrations and guided explorations.
+In 2021 IEEE International Conference on Robotics and Biomimetics
+(ROBIO), 372–378 (IEEE, 2021).
+37. Ma, X., Zhang, Z. & Zhang, H. K. Autonomous scanning target
+localization for robotic lung ultrasound imaging. In 2021 IEEE/RSJ
+International Conference on Intelligent Robots and Systems (IROS),
+9467–9474 (IEEE, 2021).
+38. Lindenroth, L. et al. Design and integration of a parallel, soft robotic
+end-effector for extracorporeal ultrasound. IEEE Trans. Biomed.
+Eng. 67, 2215–2229 (2019).
+39. Ning, G., Zhang, X. & Liao, H. Autonomic robotic ultrasound imaging
+system based on reinforcement learning. IEEE Trans. Biomed. Eng.
+68, 2787–2797 (2021).
+40. Kaminski, J. T., Rafatzand, K. & Zhang, H. K. Feasibility of robot-assisted
+ultrasound imaging with force feedback for assessment of thyroid
+diseases. In Medical Imaging 2020: Image-Guided Procedures,
+Robotic Interventions, and Modeling, Vol. 11315, 356–364 (SPIE, 2020).
+41. Shahriari, B., Swersky, K., Wang, Z., Adams, R. P. & De Freitas, N.
+Taking the human out of the loop: a review of Bayesian optimization.
+Proc. IEEE 104, 148–175 (2015).
+42. Ronneberger, O., Fischer, P. & Brox, T. U-Net: convolutional net-
+works for biomedical image segmentation. In Medical Image
+Computing and Computer-Assisted Intervention–MICCAI 2015: 18th
+International Conference, Munich, Germany, Proceedings, Part III 18,
+234–241 (Springer, 2015).
+43. Selvaraju, R. R. et al. Grad-CAM: Visual explanations from deep
+networks via gradient-based localization. In 2017 IEEE International
+Conference on Computer Vision (ICCV), 618–626 (2017).
+44. Song, Y. et al. Medical ultrasound image quality assessment for
+autonomous robotic screening. IEEE Robot. Autom. Lett. 7,
+6290–6296 (2022).
+45. Deng, G: An entropy interpretation of the logarithmic image pro-
+cessing model with application to contrast enhancement. IEEE
+Trans. Image Process. 18, 1135–1140 (2009).
+46. Karamalis, A., Wein, W., Klein, T. & Navab, N. Ultrasound con-
+ﬁdence maps using random walks. Med. Image Anal. 16,
+1101–1112 (2012).
+47. Tessler, F. N. et al. ACR thyroid imaging, reporting and data system
+(TI-RADS): white paper of the ACR TI-RADS Committee. J. Am. Coll.
+Radiol. 14, 587–595 (2017).
+48. He, K., Zhang, X., Ren, S. & Sun, J. Deep residual learning for image
+recognition. In Proceedings of the IEEE Conference on Computer
+Vision and Pattern Recognition 770–778 (2016).
+49. Gong, H. et al. Thyroid region prior guided attention for ultrasound
+segmentation of thyroid nodules. Comput. Biol. Med. 106389,
+1–12 (2022).
+50. Microsoft Corporation: Azure Kinect Body Tracking SDK(V1.1.2).
+https://learn.microsoft.com/en-us/azure/kinect-dk/body-sdk-
+download (2024).
+51. Chaumette, F. & Hutchinson, S. Visual servo control. I. Basic
+approaches. IEEE Robot. Autom. Mag. 13, 82–90 (2006).
+52. Hennersperger, C. et al. Towards MRI-based autonomous robotic
+US acquisitions: a ﬁrst feasibility study. IEEE Trans. Med. Imaging 36,
+538–548 (2016).
+53. Su, K. et al. A fully autonomous robotic ultrasound system for
+thyroid scanning. Github https://doi.org/10.5281/zenodo.
+10892928 (2024).
+Acknowledgements
+This project was funded by National Key Research and Development
+Program of China (No. 2023YFC3603803), TCL Charity Foundation
+Young Scholars Project (No. 2024001), Guangdong Basic and Applied
+Basic Research Foundation (2023B1515120064), Dreams Foundation of
+Jianghuai Advance Technology Center (No. 2023ZM01Z013) and
+Guangdong Basic and Applied Basic Research Foundation
+(2022A1515010140, 2023A1515011248). We extend our special appre-
+ciation to Chelvyn Christson Immanuel for his insightful and beneﬁcial
+suggestion regarding image segmentation.
+Author contributions
+K. Su, J. Liu, X. Ren, Y. Huo and G. Du contributed to the conception of
+the study; K. Su, J. Liu and W. Zhao performed the experiment; K. Su, Y.
+Huo, G. Du and P. X. Liu contributed signiﬁcantly to analysis and
+manuscript preparation; K. Su, Y. Huo and P. X. Liu performed the data
+analyses and wrote the manuscript; X. Wang, B. Liang, D. Li and P. X. Liu
+helped perform the analysis with constructive discussions.
+Competing interests
+The authors declare no competing interests.
+Additional information
+Supplementary information The online version contains
+supplementary material available at
+https://doi.org/10.1038/s41467-024-48421-y.
+Correspondence and requests for materials should be addressed to
+Guanglong Du, Xueqian Wang, Bin Liang or Peter Xiaoping Liu.
+Peer review information Nature Communications thanks Nassir Navab,
+Reza Monfaredi, Maria Raissaki and the other, anonymous, reviewer(s)
+for their contribution to the peer review of this work. A peer review ﬁle is
+available.
+Reprints and permissions information is available at
+http://www.nature.com/reprints
+Publisher’s note Springer Nature remains neutral with regard to jur-
+isdictional claims in published maps and institutional afﬁliations.
+Article https://doi.org/10.1038/s41467-024-48421-y
+Nature Communications| (2024)15:4004 17
+Open Access This article is licensed under a Creative Commons
+Attribution 4.0 International License, which permits use, sharing,
+adaptation, distribution and reproduction in any medium or format, as
+long as you give appropriate credit to the original author(s) and the
+source, provide a link to the Creative Commons licence, and indicate if
+changes were made. The images or other third party material in this
+article are included in the article’s Creative Commons licence, unless
+indicated otherwise in a credit line to the material. If material is not
+included in the article’s Creative Commons licence and your intended
+use is not permitted by statutory regulation or exceeds the permitted
+use, you will need to obtain permission directly from the copyright
+holder. To view a copy of this licence, visit http://creativecommons.org/
+licenses/by/4.0/.
+© The Author(s) 2024
+Article https://doi.org/10.1038/s41467-024-48421-y
+Nature Communications| (2024)15:4004 18
+

@@ -1,0 +1,67 @@
+--------------------------------优化后的从第 8 步开始往后的流程----------------------------------
+
+Abstract screening 全部候选
+↓
+识别并挑出真正核心、互补的权威 Reviews
+↓
+Reviews 全文阅读
+↓
+Initial Field Map
+↓
+结合 Initial Map + 所有候选摘要
+重新判断后续真正值得全文读的：
+- foundational / turning-point backbone
+- representative primary papers
+- 重要 branch
+- transition
+- contradiction
+- unresolved gap
+↓
+Primary full-text
+↓
+用 Primary Evidence 验证、纠正、拆分、合并、完善同一个 Field Map
+↓
+发现缺口
+↓
+targeted search
+↓
+继续 Evidence → 修正 Map
+
+--------------------------------原本的完整流程----------------------------------
+1. 确定研究目标 / scope
+↓
+2. SOURCE_POLICY_DRAFTING
+制定文献准入规则：
+研究范围、排除范围、年份、venue、高引标准、Evidence 要求等
+↓
+3. Human Gate
+用户批准 Source Admission Policy
+↓
+4. QUERY_PLANNING
+设计检索计划：
+先综述 → backbone → recent frontier → targeted gap
+并规定具体 query、年份、venue、目的、停止条件
+↓
+5. METADATA_RETRIEVAL
+执行全部检索
+获取候选论文的：
+title、abstract、作者、年份、venue、citation、DOI 等
+↓
+6. 候选论文整理
+去重
+→ identity 校验
+→ metadata / abstract 补全
+↓
+7. Abstract screening 全部候选
+逐篇看 title + abstract，判断：
+- 是否属于研究范围
+- 是什么角色/优先级
+- 是否值得全文阅读
+
+同时标记：
+RECENT_AUTHORITATIVE_REVIEWS
+HIGH_CITATION_BACKBONE
+RECENT_ELITE_FRONTIER
+……
+↓
+8. 决定全文阅读集合

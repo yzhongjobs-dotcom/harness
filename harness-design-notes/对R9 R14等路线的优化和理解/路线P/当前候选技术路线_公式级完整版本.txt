@@ -1,0 +1,973 @@
+当前候选技术路线：公式级主线、修改与理论检查
+用途：供 Codex 在此基础上继续检索、推导、比较和收敛最终 Method
+状态：候选路线，不代表任何一条已经被证明为最终 Method
+
+============================================================
+0. 核心目标与硬规则
+============================================================
+
+目标不是把 T-RO、AuSoScan、MPVIC、NNBO、Learning 拼在一起，而是：
+
+真实机器人超声/连续软接触扫描痛点
+→ 选择一条完整主线 M0
+→ 找到 M0 某一步在真实场景中的具体失败
+→ 从其他论文借鉴“解决该失败的机制”
+→ 在 M0 原公式上完成替换/修改/增加
+→ 重新推导后续 state / dynamics / action / cost / constraints / solver
+→ 检查动力学闭合、变量冗余、稳定/无源、实时性
+→ 保留、撤回或继续重构
+→ 得到 M*
+
+每一项修改必须给出：
+原流程/原公式 → 为什么在目标场景失效 → 来源文献 → 修改后的公式 → 新变量如何传播 → 理论/实现检查。
+
+目前正式比较三类路线：
+A. T-RO 2023 主线 + 接触模型修正 + 预测可变阻抗
+B. NNBO 主线 + 扫描接触模型修正 + 重新推导最优阻抗
+C. A/B 物理主线 + 条件性的 Physics–Learning residual
+C 不是默认独立主线；只有纯物理路线存在“会改变最优动作”的稳定残差时才允许加入。
+
+============================================================
+1. 路线 A：以 T-RO 2023 为完整主线
+============================================================
+
+来源：
+Wijayarathne et al.,
+“Real-Time Deformable-Contact-Aware Model Predictive Control for Force-Modulated Manipulation,”
+IEEE Transactions on Robotics, 2023.
+
+------------------------------------------------------------
+A0. T-RO 原始算法流程
+------------------------------------------------------------
+
+【Step A0-1：球形软接触模型】
+
+T-RO 假设刚性球形工具压入软表面。
+
+法向 Hertz 关系：
+d = (9 F_n^2 / (16 E^2 R))^(1/3).                         (TRO-1)
+
+球形接触半径：
+a = sqrt(R d).
+
+滑动方向摩擦：
+F_t =
+μ F_n [1 + (2ν-1) 3a^2/(10R^2)] n_v
++ k_d v_e.                                                (TRO-2)
+
+进一步写成连续接触力动力学：
+dot(F_e) = G_TRO(F_n, d, dot(d), v_e, dot(v_e); θ_c).      (TRO-3)
+
+这里 F_e 同时含法向与切向接触力。
+
+【Step A0-2：机器人动力学】
+
+ddot(q) =
+M(q)^(-1) [ τ_u - C(q,dot(q))dot(q) - G(q) - J^T F_e ].  (TRO-4)
+
+因此原整体状态：
+x = [q, dot(q), F_e].
+
+原控制变量：
+u = τ_u.
+
+离散后：
+x[k+1] = f_TRO(x[k], u[k]).                              (TRO-5)
+
+【Step A0-3：同时优化轨迹与力】
+
+T-RO 原问题：
+
+min_{x[0:N],u[0:N-1]}
+Σ_i [
+  δF[i]^T Q_F δF[i]
+  + u[i]^T R u[i]
+  + ||FK(q[i]) - x_e^d[i]||^2_{W_p}
+]                                                        (TRO-6)
+
+s.t.
+x[i+1] = f_TRO(x[i],u[i]),
+q_min ≤ q[i] ≤ q_max,
+u_min ≤ u[i] ≤ u_max,
+contact/sliding constraint.                              (TRO-7)
+
+【Step A0-4：DDP + IK + Projection → ADMM】
+
+DDP block：
+优化 u=τ，并通过 (TRO-5) forward rollout 保证机器人+接触动力学成立。
+
+IK block：
+优化 q，使 FK(q) 跟踪给定 Cartesian path。
+
+Projection block：
+把 q、u、contact variables 投影回 joint / torque / contact feasible set。
+
+三块由 ADMM consistency constraints 协调。
+
+【Step A0-5：MPC 执行】
+
+每个 MPC 周期求解未来轨迹，只执行当前段，再重新测量。
+
+T-RO 实际下发：
+u* =
+u_ff
++ K_fb (q_curr - q_plan)
++ δu_FC,                                                   (TRO-8)
+
+其中低层 force controller：
+δu_FC =
+C(x,y,z) J^T (F_e^plan - F_e^curr).                        (TRO-9)
+
+论文中：
+- 高层 ADMM-MPC 约 5 Hz；
+- 低层 admittance force control 约 100 Hz；
+- KUKA 内部执行预设 joint impedance；
+- C(x,y,z) 理论可空间变化，但实验中设为常数。
+
+【A0 的关键限制】
+
+T-RO 自己明确指出：
+1. 接触模型针对 predefined geometry，实验使用球形工具；
+2. robot impedance 为 predefined mode；
+3. 高阻抗更利于 motion accuracy，低阻抗更利于 force interaction，因此 task-dependent impedance adaptation 可能继续改善性能。
+
+这正是路线 A 的两个主要改造入口。
+
+------------------------------------------------------------
+A1. 修改 1：球形接触 → 超声探头接触
+------------------------------------------------------------
+
+目标痛点：
+真实超声探头不是球形；若继续使用 (TRO-1)(TRO-2)，接触几何首先失配。
+
+直接支撑：
+Duan et al.,
+“AuSoScan: Automatic Scoliosis Assessment by Ultrasound Scanning With Soft Contact Control,”
+IEEE/ASME Transactions on Mechatronics, 2025.
+
+AuSoScan 明确从 sphere 改成 cylinder–plane，因为 cylinder 更接近超声探头几何。
+
+------------------------------------------------------------
+A1a. 第一层修改：只修正几何，不自动加入滑动不对称
+------------------------------------------------------------
+
+AuSoScan 静态 cylinder–plane Hertz：
+
+p(r) = p_s sqrt(1-r^2/a^2),                               (A1-1)
+
+p_s = (E*/2) sqrt(d/R),                                   (A1-2)
+
+1/E* = (1-ν_1^2)/E_1 + (1-ν_2^2)/E_2.                    (A1-3)
+
+其静态压入关系等价于：
+d_0 = 4F_n/(πE*L)
+⇔
+F_n = (πE*L/4)d_0.                                        (A1-4)
+
+因此最基本替换是：
+
+T-RO：
+d ↔ F_n via spherical Hertz (TRO-1)
+
+替换为：
+d ↔ F_n via cylinder–plane Hertz (A1-1~A1-4).
+
+【重要理论检查】
+
+不能只换法向 (TRO-1) 而继续原封不动保留 (TRO-2)：
+TRO-2 中 a=sqrt(Rd) 及球面对称压力修正来自 sphere geometry；
+一旦几何换成 cylinder–plane，该球形切向修正也失去原推导基础。
+
+所以 A1a 的“几何-only baseline”应至少改为：
+F_t = μ F_n + c_t v_t,                                   (A1-5)
+
+其中：
+- μF_n：最简单界面滑动摩擦；
+- c_t v_t：若需要，保留低阶速度耗散。
+它只能作为 baseline，不应宣称完整描述软组织滑动形变。
+
+------------------------------------------------------------
+A1b. 第二层候选修改：若真实扫描证明需要，再加入 AuSoScan 动态不对称
+------------------------------------------------------------
+
+AuSoScan 在相对滑动时建立：
+
+a_1 = sqrt(R d_0) - k_1 v,
+a_2 = sqrt(R d_0) + k_2 v,                               (A1-6)
+
+即前/后接触区随速度产生不对称。
+
+动态法向力：
+F_n =
+(πLE*/8)
+[2 sqrt(Rd_0) + Δk v]
+sqrt(d/R),                                                (A1-7)
+
+Δk = k_2-k_1.
+
+切向力：
+F_t = μF_n + f_b,                                        (A1-8)
+
+其中 f_b 是由非对称压力场积分得到的 deformation resistance。
+
+对应动力学：
+dot(F_n) = G_n(d,dot(d),v,dot(v);E*,R,L,Δk),             (A1-9)
+dot(F_t) = μ dot(F_n) + dot(f_b).                         (A1-10)
+
+然后直接替换 TRO-3：
+dot(F_e)
+= G_TRO(...)
+→
+dot(F_e)
+= G_US(d,dot(d),v,dot(v);θ_US).                          (A1-11)
+
+后面的 robot dynamics、DDP、IK、Projection、ADMM 均可先保持原接口，
+因为它们仍然只需要一个可微的 contact-force dynamics。
+
+【A1b 保留条件】
+
+不能因为 AuSoScan 有这个模型就自动加入。
+只有真实目标扫描速度/压入范围下满足：
+
+1. A1a 的残差稳定依赖 sliding state；
+2. A1b 显著改善未来 F_n/F_t 预测；
+3. 更关键：A1b 会改变后续最优阻抗/可行控制选择；
+
+才保留 A1b。
+否则停在 A1a 或寻找更合适接触模型。
+
+------------------------------------------------------------
+A2. 修改 2：T-RO 预设阻抗 → 接触预测驱动的在线可变阻抗
+------------------------------------------------------------
+
+目标痛点：
+T-RO 已预测未来 contact state，但执行柔顺性是 predefined；
+因此“未来接触信息”没有直接用于决定机器人该多硬/多软。
+
+来源文献：
+
+1. Anand 2023：
+   learned dynamics + CEM-MPC 直接搜索未来 stiffness profile K[k:k+H]。
+   VIC 基础关系：
+   M δddot(x) + D δdot(x) + K δx = F_ext.                 (A2-1)
+   其实现中 D=2 sqrt(K)，MPC 主要优化 K。
+
+2. Haninger 2023：
+   f-f_r = M ddot(x) + D dot(x) + K(x-x_0).              (A2-2)
+   impedance parameters 显式进入预测动力学；
+   局部环境刚度：
+   K_e ≈ ∂μ_f/∂x,
+   并约束：
+   D_i ≥ 2ζ sqrt(M_i K_{e,i}).                            (A2-3)
+
+3. Roveda 2022：
+   impedance variables 在线优化，但其重要启示是：
+   reference 与 impedance 同时优化可能产生作用冗余；
+   必须先定义独立 control authority。
+
+4. Xue 2025：
+   证明 unknown soft environment + VIC + MPC + passivity 可以形成闭环；
+   但其 MPC 并不是简单直接搜索 K,D。
+   其 energy tank 只能在“我们的可变刚度确实产生能量问题”后作为理论修复来源。
+
+------------------------------------------------------------
+A2 当前必须比较的两种公式级融合方式
+------------------------------------------------------------
+
+【A2-I：阻抗参数化控制 —— 当前更直接的候选】
+
+不再让 DDP 自由选择裸 torque：
+u = τ
+
+而定义接触坐标系中的阻抗参数：
+θ_I = [K_n, K_t]                                         (A2-4)
+
+或者在证据支持后扩成：
+θ_I = [K_n,D_n,K_t,D_t].
+
+阻抗律：
+M_d δddot(x)
++ D(θ_I) δdot(x)
++ K(θ_I) δx
+= F_ext - F_ref.                                         (A2-5)
+
+由此得到期望 acceleration：
+α =
+ddot(x)_r
++
+M_d^{-1}
+[D δdot(x)+K δx-(F_ext-F_ref)].                           (A2-6)
+
+再经机器人 inverse dynamics / task-space mapping：
+τ = π_imp(q,dot(q),F_e,x_r,F_r;θ_I).                     (A2-7)
+
+因此把 T-RO robot dynamics (TRO-4) 改写为：
+ddot(q) =
+M(q)^{-1}
+[
+π_imp(...;θ_I)
+-Cdot(q)-G-J^T F_e
+].                                                        (A2-8)
+
+整体预测模型变成：
+x[k+1] =
+f_VI(x[k], θ_I[k]).                                      (A2-9)
+
+DDP 从：
+min_{τ[0:H-1]} J
+
+改成：
+min_{θ_I[0:H-1]} J_VI.                                   (A2-10)
+
+建议的第一版 cost：
+J_VI =
+Σ [
+  δF^T Q_F δF
+  + ||FK(q)-x_d||^2_{W_p}
+  + τ(θ_I)^T R_τ τ(θ_I)
+  + ||Δθ_I||^2_{R_I}
+].                                                        (A2-11)
+
+Projection 从原来的：
+q∈J, τ∈U, contact∈F
+
+扩成：
+q∈J,
+τ(θ_I)∈U,
+θ_min ≤ θ_I ≤ θ_max,
+|Δθ_I| ≤ Δθ_max,
+contact∈F.                                               (A2-12)
+
+【为什么这一形式自然】
+
+- T-RO 的 DDP 本质只要求 x_{k+1}=f(x_k,u_k) 可微；
+- 现在只是令 u_k=θ_I，并通过可微 π_imp 产生真实 torque；
+- robot dynamics、contact dynamics、DDP/IK/Projection/ADMM 的主结构仍保留；
+- Anand 证明“未来 stiffness profile 作为 MPC action”可行；
+- Haninger 证明 impedance parameters 可以显式进入预测动力学和约束。
+
+【阻尼不应默认独立搜索】
+
+优先比较：
+D_n = g(K_n,K_{e,n},M_n),
+D_t = g(K_t,K_{e,t},M_t).                                (A2-13)
+
+其中局部环境导数直接由物理 contact model 给出：
+K_{e,n} = ∂F_n/∂d.                                      (A2-14)
+
+借鉴 Haninger，可先采用 well-damped 条件：
+D_n ≥ 2ζ sqrt(M_n K_{e,n}),                              (A2-15)
+
+切向按对应局部动力学重新推导，而不能机械复制 (A2-15)。
+
+只有 matched comparison 证明独立优化 D 会改变最优 action / joint outcome，
+才升级为 [K_n,D_n,K_t,D_t] 四个独立决策。
+
+------------------------------------------------------------
+A2-II：保留 T-RO 的 τ_ff，同时联合优化反馈阻抗 —— 次级候选
+------------------------------------------------------------
+
+保持 T-RO：
+τ_ff[k] 仍由 DDP 优化。
+
+把原执行式：
+u* =
+τ_ff
++ K_fixed e_q
++ C_fixed J^T e_F
+
+改为：
+u* =
+τ_ff
++ K_I[k] e_q
++ C_I[k] J^T e_F.                                       (A2-16)
+
+并令：
+θ_I[k]=[K_I[k],C_I[k]]
+成为预测变量。
+
+但这一结构存在重要问题：
+
+在理想 deterministic nominal rollout 中，
+若 e_q≈0、e_F≈0，
+则 K_I、C_I 对 nominal trajectory 几乎不起作用；
+τ_ff 与 θ_I 还可能产生 control-authority redundancy。
+
+因此 A2-II 只有在加入：
+- disturbance/uncertainty scenarios，
+- future error covariance，
+- sensitivity / robustness objective
+
+后，阻抗优化才真正有意义。
+
+Haninger 正是通过 stochastic force → future trajectory distribution
+使 impedance 改变预测分布。
+
+所以 A2-II 比 A2-I 更忠实保留 T-RO torque planner，
+但理论和计算结构更复杂。
+
+【当前结论】
+
+不能现在拍板 A2-I 或 A2-II。
+Codex 必须用同一个真实场景做公式级 comparison：
+
+A2-I：
+θ_I 直接参数化 torque，结构更干净，但改变 T-RO control authority。
+
+A2-II：
+保留 τ_ff，更忠于 T-RO，但必须证明 impedance 在预测中具有独立、非冗余作用。
+
+------------------------------------------------------------
+A3. 路线 A 修改后的总流程
+------------------------------------------------------------
+
+实际超声 scan reference：
+{x_d[k], F_d[k]}
+        ↓
+超声探头 contact model：
+(d,v,contact parameters)
+→ F_e / dot(F_e)
+        ↓
+T-RO robot dynamics：
+(q,dot(q),F_e) + control
+→ future state
+        ↓
+【修改后的 variable-impedance decision】
+A2-I：θ_I → π_imp → τ
+或
+A2-II：(τ_ff,θ_I) → closed-loop τ
+        ↓
+DDP：预测 future force + motion
+        ↔
+IK：scan pose/path
+        ↔
+Projection：joint / actuator / contact / impedance constraints
+        ↓
+ADMM consensus
+        ↓
+MPC：只执行第一步
+        ↓
+高频阻抗/力控制执行
+        ↓
+重新测量并滚动优化
+
+路线 A 的科学核心候选：
+“把 T-RO 已有的 future deformable-contact prediction
+从只决定 motion/force trajectory，
+进一步变成决定 future interaction impedance 的依据。”
+
+============================================================
+2. 路线 B：以 NNBO 的“非线性环境 → 最优阻抗”为主线
+============================================================
+
+来源：
+Kong et al.,
+“Neural-Network-Based Optimal Impedance Control for Robots in Physical Interaction With Soft Environments,”
+IEEE Transactions on Systems, Man, and Cybernetics: Systems, 2025.
+
+------------------------------------------------------------
+B0. NNBO 原始算法流程
+------------------------------------------------------------
+
+【Step B0-1：HC 环境模型】
+
+单方向点接触：
+
+f =
+B_e (x-x_e)^n dot(x)
++
+K_e (x-x_e)^n.                                          (NNBO-1)
+
+通过 EWRLS 估计 K_e、B_e、n。
+
+【Step B0-2：目标阻抗】
+
+NNBO 定义：
+f = I(x-x_d),                                            (NNBO-2)
+
+线性目标阻抗：
+I(s)=B_a s + K_a.                                       (NNBO-3)
+
+position-based implementation：
+x_r = x_d + f/I(s).                                     (NNBO-4)
+
+即：
+“最优 interaction force–position relation”
+最终通过 reference position 实现。
+
+【Step B0-3：构造 interaction dynamics】
+
+HC 改写成：
+dot(x)
+=
+-K_e/B_e
++
+f/[B_e(x-x_e)^n]
++
+ε.                                                       (NNBO-5)
+
+与 desired-position generator 合并后：
+dot(X)
+=
+F(X)+G(X)f+Kε(X).                                       (NNBO-6)
+
+其中 X 包含 tracking error 与 command-generator state，
+而 f 被视为 optimal-control input。
+
+【Step B0-4：最优 interaction】
+
+原性能：
+J =
+∫ [
+X^T Q_tilde X
++ f^T R f
++ ζ_ε^2(X)
+] dt.                                                    (NNBO-7)
+
+HJB：
+min_f H(X,f,∇J*)=0.                                     (NNBO-8)
+
+最优 interaction force：
+f* =
+-(1/2) R^{-1} G^T ∇J*.                                 (NNBO-9)
+
+由于 nonlinear HJB 难解析，
+single critic NN 逼近：
+J_hat(X)=W_hat^T φ(X),                                  (NNBO-10)
+
+从而：
+f_hat(X)
+=
+-(1/2)R^{-1}G^T ∇φ(X)^T W_hat.                         (NNBO-11)
+
+再由 f_hat 与 X 的关系获得 desired impedance。
+
+因此 NNBO 原主线是：
+
+HC contact
+→ interaction dynamics
+→ optimal force-position relation
+→ HJB
+→ critic approximates HJB
+→ optimal impedance
+→ position-based realization.
+
+------------------------------------------------------------
+B1. 修改 1：法向单点 HC → 连续扫描所需的 contact dynamics
+------------------------------------------------------------
+
+真实问题：
+NNBO 的 (NNBO-1) 主要是单方向 normal indentation；
+如果真实超声扫描中的 tangential sliding / probe geometry
+会改变最优 impedance，则原 state 不足。
+
+来源：
+- T-RO 2023：normal + sliding force 作为 smooth contact dynamics；
+- AuSoScan 2025：probe-specific cylinder–plane + sliding soft-contact dynamics。
+
+修改不能写成：
+HC + T-RO friction + AuSoScan friction
+直接相加。
+
+必须选择一个统一的 contact dynamics：
+
+F_c =
+[F_n, F_t]^T,                                            (B1-1)
+
+dot(F_c)
+=
+G_scan(
+d,dot(d),
+v_t,dot(v_t),
+θ_c
+).                                                       (B1-2)
+
+其中 G_scan 的具体形式由真实场景决定：
+- 若仅几何失配：使用 cylinder–plane normal + minimal tangential model；
+- 若真实数据证明 sliding asymmetry 必要：使用 AuSoScan dynamic contact；
+- 若 normal rate/history residual 仍存在，再另行比较 HC/Prony 等。
+
+关键不是预测 RMSE，而是：
+新 contact state 是否改变 optimal impedance。
+
+------------------------------------------------------------
+B2. 修改 2：重新构造 NNBO interaction state，不允许后续原样照搬
+------------------------------------------------------------
+
+原 NNBO：
+X = [normal tracking state + command-generator state].
+
+扫描版必须从实际最小充分状态重新构造。
+一个候选结构是：
+
+X_s =
+[
+e_n,
+e_t,
+F_n,
+F_t,
+s_r
+]^T,                                                     (B2-1)
+
+其中：
+- e_n：normal motion/contact error；
+- e_t：scan-direction tracking error；
+- F_n,F_t：contact outcome；
+- s_r：reference-generator state。
+
+如果姿态、moment、history 被证明会改变最优 impedance，
+才扩展 X_s；否则不加。
+
+把接触模型 B1-2 和机器人/参考动力学合并：
+
+dot(X_s)
+=
+F_s(X_s)
++
+G_s(X_s) w
++
+K_s ε_s(X_s).                                           (B2-2)
+
+w 是新的 interaction control variable；
+必须明确它最终对应：
+- contact force command，
+- impedance parameter，
+或另一种可实现 interaction variable。
+
+这一点必须通过 controllability / realization 推导，
+不能直接假设仍与原 NNBO 一维 f 完全等价。
+
+------------------------------------------------------------
+B3. 修改 3：最优阻抗问题随新 dynamics 重新推导
+------------------------------------------------------------
+
+原 NNBO cost：
+position error + force effort.
+
+扫描版候选：
+
+J_s =
+∫ [
+X_s^T Q_s X_s
++ w^T R_s w
++ ζ_s^2(X_s)
+] dt.                                                    (B3-1)
+
+其中 Q_s 的具体项必须对应真实任务：
+force regulation、scan tracking、contact/slip 等；
+不能因为 R14 写过就全部自动加入。
+
+新的 HJB：
+
+min_w {
+∇J_s^T [F_s(X_s)+G_s(X_s)w]
++
+X_s^T Q_s X_s
++
+w^T R_s w
++
+ζ_s^2
+}
+=0.                                                      (B3-2)
+
+若满足同样的 quadratic-in-control 结构，则：
+
+w* =
+-(1/2) R_s^{-1} G_s^T ∇J_s*.                           (B3-3)
+
+critic：
+
+J_hat_s(X_s)=W_hat^T φ_s(X_s),                          (B3-4)
+
+w_hat =
+-(1/2) R_s^{-1} G_s^T ∇φ_s(X_s)^T W_hat.               (B3-5)
+
+最后重新定义 desired impedance relation：
+F_c^* =
+I_s(X_s;θ_I)(x-x_d),                                    (B3-6)
+
+或得到等价的 optimal impedance parameters θ_I^*。
+
+【关键点】
+
+只要 B1/B2 改了，
+NNBO 的 HJB、critic input、optimal policy、impedance realization
+都必须沿新 dynamics 重推。
+绝不能“换接触模型，后面 NNBO 原样不动”。
+
+------------------------------------------------------------
+B4. 路线 B 的理论杀伤点
+------------------------------------------------------------
+
+路线 B 必须重点检查：
+
+1. State dimension：
+从一维 HC 扩到 normal+tangential 后，
+HJB / critic approximation 是否仍实时、数据可承受？
+
+2. Hard constraints：
+真实扫描若必须显式处理 force/slip/actuator/gain-rate，
+infinite-horizon HJB 是否仍比 finite-horizon constrained MPC 更自然？
+
+3. Control realization：
+B3-3 的 w* 如何唯一映射成可执行 K_n/K_t/(D_n/D_t)？
+若映射不唯一，会产生 impedance identifiability/redundancy。
+
+4. Solver necessity：
+若为了加入 constraints 最终必须大幅引入 MPC，
+则 NNBO 已不再是自然主干，路线 A 可能更合理。
+
+------------------------------------------------------------
+B5. 路线 B 修改后的总流程
+------------------------------------------------------------
+
+scan reference + robot/contact measurement
+        ↓
+probe-specific scan contact model G_scan
+        ↓
+construct scan interaction state X_s
+        ↓
+dot(X_s)=F_s+G_s w+K_s ε_s
+        ↓
+define scan interaction objective J_s
+        ↓
+derive HJB
+        ↓
+single-critic NN approximates J_s*
+        ↓
+derive optimal interaction w*
+        ↓
+map w* → desired normal/tangential impedance θ_I*
+        ↓
+position/torque realization
+        ↓
+closed-loop scan
+
+路线 B 的科学核心候选：
+“把 NNBO 的 nonlinear-normal-contact optimal impedance
+重构成 continuous sliding contact-aware optimal impedance，
+而不是仅用一维 HC 决定 interaction behavior。”
+
+============================================================
+3. 路线 C：Physics + Learning Hybrid（条件性）
+============================================================
+
+这不是默认第三套控制器。
+它必须建立在 A 或 B 已经成立的物理主线之上。
+
+------------------------------------------------------------
+C0. 进入条件
+------------------------------------------------------------
+
+先得到 pure-physics：
+
+outcome_phys =
+F_phys(
+history h_k,
+candidate action a_{k:k+H-1};
+θ
+).                                                       (C0-1)
+
+其中：
+- 路线 A 的 action 可以是 impedance sequence；
+- 路线 B 的 action 可以是 optimal-interaction/impedance variable。
+
+只有出现：
+
+相同物理 state/action 条件下，
+存在稳定、可重复、会改变 feasible set / optimal impedance order 的 residual，
+
+才允许进入路线 C。
+
+------------------------------------------------------------
+C1. 修改：只学习物理模型补不上的 decision residual
+------------------------------------------------------------
+
+Hybrid：
+
+outcome_hat =
+F_phys(h_k,a;θ)
++
+Δ_ψ(h_k,a).                                             (C1-1)
+
+其中 Δ_ψ 必须 action-conditioned，
+因为最终关心的是：
+“不同候选 impedance/action 下 residual 如何改变 future outcome”。
+
+然后原 optimizer 不变：
+
+路线 A：
+outcome_hat
+→ DDP/ADMM-MPC
+→ θ_I^*.
+
+路线 B：
+outcome_hat / corrected interaction dynamics
+→ HJB/critic or revised optimizer
+→ θ_I^*.
+
+------------------------------------------------------------
+C2. Learning 的来源/候选
+------------------------------------------------------------
+
+1. R14 Candidate H 已写过：
+physical skeleton + decision residual
+的结构，但其必要性没有被证据证明，不能直接继承。
+
+2. Anand / Roveda 证明 learned dynamics → predictive impedance optimization 可行；
+但若已有显式 physics 足够，不应再用 NN 学整个 robot/contact dynamics。
+
+3. 用户提到的 NMI learning 论文：
+只能在读取并确认其真实 learning object、input/output、
+action-conditioning 与 adaptation mechanism 后再迁移。
+当前不能仅凭“它用了 learning”就指定网络或训练目标。
+
+4. Bioinspired Trajectory Modulation for Effective Slip Control：
+只有 slip 被证明是实际核心残余瓶颈，
+且 impedance adaptation 单独不能解决时，
+才作为“trajectory modulation”候选，
+不能与路线 C 自动绑定。
+
+------------------------------------------------------------
+C3. Hybrid 的删除判据
+------------------------------------------------------------
+
+做 matched counterfactual：
+
+Physics:
+a_phys^* = argmin_a J(F_phys(h,a))
+
+Hybrid:
+a_hyb^* = argmin_a J(F_phys(h,a)+Δ_ψ(h,a))
+
+若删除 Δ_ψ 后：
+- feasible action set 基本不变；
+- optimal action order 基本不变；
+- force/path/contact/slip joint outcome 无实质变化；
+
+则 Δ_ψ 删除。
+
+只有：
+persistent action-changing residual
++
+hybrid 比 pure physics 明显改善
++
+physical skeleton 相比 pure learning 显著降低数据/不确定性/计算负担
+
+三者同时成立，Hybrid 才保留。
+
+============================================================
+4. 三条路线的准确关系
+============================================================
+
+路线 A：
+主线 = T-RO 的
+contact dynamics
+→ robot dynamics
+→ DDP + IK + Projection
+→ ADMM-MPC.
+
+主要修改：
+1. sphere contact → ultrasound-probe contact；
+2. predefined impedance → future-contact-driven variable impedance。
+关键未决点：
+阻抗应直接参数化 DDP control，还是与原 τ_ff 并存。
+
+路线 B：
+主线 = NNBO 的
+nonlinear environment
+→ interaction dynamics
+→ HJB
+→ critic
+→ optimal impedance.
+
+主要修改：
+1. scalar normal HC → scan-relevant contact dynamics；
+2. 因 dynamics 改变，重新推导 state/cost/HJB/critic/impedance realization。
+关键未决点：
+normal+tangential + hard constraints 后，
+HJB/critic 是否仍比 MPC 更自然。
+
+路线 C：
+主线 = A 或 B 的物理路线。
+修改：
+仅在物理模型存在 decision-changing residual 时，
+增加 action-conditioned learned residual。
+它不是为了“加入 Learning”，而是为了修复已被实验证明的 physics failure。
+
+============================================================
+5. Codex 下一步必须执行
+============================================================
+
+1. 先锁定一个真实机器人超声使用场景和明确控制痛点。
+2. 对同一场景分别建立：
+   A0 = 原 T-RO；
+   B0 = 原 NNBO。
+3. 对路线 A：
+   先完成 A1 接触替换的完整公式闭合；
+   再严格比较 A2-I 与 A2-II，不能直接拍板“τ→K”。
+4. 对路线 B：
+   由新的 scan contact dynamics 重新推导 B2/B3，
+   不能只改 HC 后沿用原 HJB。
+5. 每次修改后检查：
+   dynamics closure；
+   control authority / redundancy；
+   stability/passivity；
+   constraint feasibility；
+   differentiability/solver compatibility；
+   WCET / real-time feasibility。
+6. 在相同真实场景、相同评价目标下比较 A 与 B：
+   哪条修改更自然、理论更闭合、实现负担更低、Scientific Delta 更强。
+7. 只有 A/B 的 pure physics 被证明存在 action-changing residual 后，
+   才启动 C。
+8. 最终结果必须能写成：
+   “由于主线 M0 的具体机制 X 在真实任务 Y 中失败，
+    我们将公式 X 改为 X'；
+    该修改传播到 dynamics/action/cost/constraints 后形成 M*，
+    并由理论与实验说明更简单方案不能补上这一缺口。”
+
+============================================================
+6. 主要来源文献及在本任务中的准确作用
+============================================================
+
+T-RO 2023：
+Wijayarathne et al.
+作用：主线 A；deformable contact + robot dynamics + DDP/IK/Projection + ADMM-MPC；
+同时明确提供 predefined impedance 这一改造入口。
+
+AuSoScan 2025：
+Duan et al.
+作用：probe-specific cylinder–plane Hertz；
+另有 sliding front/rear asymmetry + deformation resistance。
+注意：这两部分必须分别审查，不能整包搬入。
+
+Anand 2023：
+Model-Based Variable Impedance Learning Control.
+作用：证明“future stiffness profile 作为 MPC action”可行；
+不代表需要搬 PENN/CEM。
+
+Haninger 2023：
+Model Predictive Impedance Control With Gaussian Processes.
+作用：证明 impedance 显式进入 predictive dynamics；
+证明 environment local stiffness 可以塑造 damping/impedance feasible set：
+D_i ≥ 2ζ sqrt(M_i K_e,i)。
+
+Roveda 2022：
+Q-Learning-Based MPVIC.
+作用：decision-variable / stability / redundancy 分析；
+不默认迁移 Q-learning。
+
+Xue 2025：
+safe MPVIC.
+作用：unknown environment、VIC、MPC、passivity/energy-tank 的完整可行性证据；
+energy tank 只有在本方法引入 variable stiffness 后确实需要无源修复时才用。
+
+NNBO 2025：
+Kong et al.
+作用：主线 B；
+HC nonlinear soft environment → interaction dynamics → HJB → single critic → optimal impedance。
+
+一般 impedance-control / learning 文献：
+直接复用 E2E field map、user-batch、user-batch-v2；
+它们是当主线出现明确缺口后用于寻找最匹配机制的 mechanism pool，
+不是待拼接模块。

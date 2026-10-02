@@ -1,0 +1,839 @@
+逆向分析了多篇顶会顶刊发现，当前的从失败中找问题并分析根因+通过方法迁移解决问题 只适用于一类方法，顶级研究还存在 representation-first、formal-generalization、measurement-first、capability-composition 等其他形成模式。
+
+但是这个可以后续补充、优化，当前需要先解决的问题是 把 从失败中找问题+方法迁移式设计方法  做好
+
+
+
+
+
+
+
+
+
+
+
+---------------------------------------------------以下是当时逆向分析的输出------------------------------------------------------
+
+
+已进入 **Step 3 — 顶级论文证伪式逆向分析**。第一轮样本已经足以暴露一个关键事实：
+
+> 当前候选 Methodology 的核心思想是强的，但 **`Root Cause → Mechanism Change → Principle Search → Principle Competition` 不能作为所有顶级工作的统一生成骨架**。
+> 它很好地解释了一类“failure-remedy / mechanism-intervention”论文，但顶级论文至少还存在 **representation-first、formal-generalization、capability-composition、measurement/evidence-first、infrastructure/hypothesis-test、system co-design** 等形成模式。
+
+这不是最终修改结论，只是第一轮反例已经迫使我们收窄原假设。
+
+---
+
+# 1. 先解决一个 Step 3 本身的方法学问题
+
+你要求恢复的是 **真实 Method formation**，这里不能把论文 Introduction 中经过包装的 narrative 当成研究者真实的思考顺序。
+
+因此后续每篇论文都必须区分：
+
+| 证据级别                             | 能证明什么                                    |
+| -------------------------------- | ---------------------------------------- |
+| **F0 — Published rationale**     | 最终论文能够被什么 Problem→Method 逻辑解释            |
+| **F1 — Development evidence**    | ablation、版本变化、失败方案等显示方法确实经历过某种选择         |
+| **F2 — Author genesis evidence** | 作者 talk/blog/interview 明确说 insight 是怎么来的 |
+| **F3 — Contemporaneous trace**   | project history、早期版本、实验记录等直接支持真实形成顺序     |
+
+**没有 F2/F3 时，不能写“作者是这样想到的”**，只能写：
+
+> “该论文最终方法具有这样的 causal formation logic。”
+
+这一点非常重要，否则 Step 3 最后会得到一个典型的 post-hoc rationalization，而不是 Method Design 方法论。
+
+---
+
+# 2. 第一轮证伪样本集
+
+我建议核心 calibration set 暂定为下面 10 篇。不是为了覆盖所有热门论文，而是每一篇承担不同的“攻击当前框架”的职责。
+
+| Paper                                                                 | Venue                            | 主要 Method-formation mode                                       | 对当前框架的作用                               |
+| --------------------------------------------------------------------- | -------------------------------- | -------------------------------------------------------------- | -------------------------------------- |
+| **Global Planning for Contact-Rich Manipulation via Local Smoothing** | T-RO                             | contradiction → mechanism extraction → cross-paradigm transfer | **强正例**                                |
+| **Diffusion Policy**                                                  | RSS 2023 / IJRR                  | external mechanism transfer + policy representation change     | **强正例**                                |
+| **Transporter Networks**                                              | CoRL 2020                        | representation-first + geometric inductive bias                | **核心反例**                               |
+| **Non-Euclidean Motion Planning with GGCS**                           | RSS 2023 / IJRR                  | formal obstruction → mathematical generalization               | **核心反例**                               |
+| **SayCan**                                                            | CoRL 2022                        | complementary capability factorization                         | **挑战“同构迁移”中心性**                        |
+| **Open X-Embodiment / RT-X**                                          | ICRA 2024 Best Conference Paper  | empirical hypothesis + standardization + scale evidence        | **核心反例**                               |
+| **ALOHA + ACT**                                                       | RSS 2023                         | coupled bottlenecks + hardware/data/algorithm co-design        | **检验 minimal composition**             |
+| **Identifying Important Sensory Feedback**                            | Nature Machine Intelligence 2023 | measurement / scientific identification                        | **evidence-first 反例**                  |
+| **High-speed locomotion via IRRL**                                    | Nature Machine Intelligence 2022 | conflicting objectives → staged intervention                   | **contradiction-driven 正例**            |
+| **CHOMP**                                                             | IJRR                             | variational/geometric reformulation → direct construction      | **first-principles/direct derivation** |
+
+其中 Open X-Embodiment 确实获得了 **ICRA 2024 Best Conference Paper Award**，不是仅凭影响力人为选进样本。([IEEE实体网站][1])
+
+---
+
+# 3. 第一批逐篇逆向恢复
+
+## Case 1 — Contact-Rich Planning via Local Smoothing
+
+这是目前找到的、**最接近你当前 Methodology 理想形态**的顶级案例。
+
+### Formation chain
+
+**Research Problem**
+
+为什么 model-based planning 在 contact-rich manipulation 中远弱于 RL？
+
+作者没有停留在“RL 效果更好”，而是明确拆成三个机制瓶颈：
+
+$$
+\text{contact mode explosion}
++
+\text{nonsmooth/stiff dynamics}
++
+\text{nonconvex planning}.
+$$
+
+([Google Sites][2])
+
+**关键 Insight**
+
+一个非常重要的 contradiction：
+
+> RL 明明没有显式解决 contact modes，为什么反而能工作？
+
+作者识别出 RL 的 stochasticity 实际上在**采样并平均 contact modes**；而已有 model-based 方法对 contact dynamics 做 analytical smoothing。随后不是停在 analogy，而是证明简单系统中二者具有理论等价性，并在复杂系统中给出经验对应。([Google Sites][2])
+
+因此真正的 Principle 不是：
+
+> “把 RL 技术借给 model-based planning。”
+
+而是：
+
+> **当离散 contact-mode switching 导致优化景观不可用时，通过局部平均/平滑 marginalize 掉 mode discontinuity，使规划器看到可优化的有效动力学。**
+
+这正是你定义的：
+
+> Source Method → 去具体实现 → 找 Intervention → Mechanism Change → Solution Principle。
+
+而且来源机制证据异常强，因为作者并非凭 analogy 猜测，而是做了 equivalence analysis。([Google Sites][2])
+
+### Source–Target mapping
+
+Source 是 stochastic RL，Target 是 deterministic/model-based planning。
+
+真正映射的不是算法结构，而是：
+
+$$
+\text{multiple contact modes}
+\rightarrow
+\text{local averaging}
+\rightarrow
+\text{smooth effective behavior}.
+$$
+
+所以这甚至比“跨领域迁移”更值得注意：
+
+> **强创新可能来自 cross-paradigm mechanism transfer，而不一定是 cross-domain transfer。**
+
+### 为什么最后不是 method soup？
+
+因为三个模块分别对应三个独立瓶颈：
+
+$$
+\begin{aligned}
+\text{mode explosion} &\rightarrow smoothing\\
+\text{bad gradients} &\rightarrow differentiable quasi-dynamics\\
+\text{global nonconvexity} &\rightarrow sampling-based global search.
+\end{aligned}
+$$
+
+作者自己就是按这三个问题组织贡献。([Google Sites][2])
+
+### 对当前 Methodology 的判决
+
+**强支持：**
+
+Root Cause → Mechanism Change → Principle abstraction → mechanism-level transfer → necessary adaptation → minimal causal composition。
+
+但它同时提示当前框架遗漏一个重要 search mode：
+
+> **cross-paradigm mechanistic equivalence search**
+
+它与“跨领域结构同构”相关，但不是同一个东西。
+
+---
+
+# 4. Case 2 — Diffusion Policy
+
+这是当前框架中“跨领域迁移”的非常干净的正例。
+
+### Problem / Root Cause
+
+Behavior Cloning 看似只是 observation→action regression，但机器人 action distribution 有三个特殊困难：
+
+$$
+\text{multimodality}
++
+\text{sequential correlation}
++
+\text{high precision}.
+$$
+
+GMM/categorical representation 表达能力受限；implicit energy-based policy 虽能表达 multimodality，却受到 negative sampling 和 normalization 带来的训练不稳定问题。([Sage Journals][3])
+
+### Representation transformation
+
+核心变化不是“换一个 neural network”。
+
+而是：
+
+$$
+\text{direct action prediction / normalized density}
+$$
+
+变成
+
+$$
+\text{learn score-gradient field over action distribution}
+\rightarrow
+\text{iterative denoising}.
+$$
+
+作者明确把 visuomotor policy 表示成 **conditional denoising diffusion process over robot action space**。([Sage Journals][3])
+
+### Source Principle
+
+Diffusion model 原先主要用于生成高维、多模态数据。
+
+真正可迁移的 Principle 是：
+
+> **对于复杂高维多模态条件分布，不直接参数化最终输出或归一化概率，而学习其 score field，通过迭代生成恢复样本。**
+
+这样同时获得：
+
+* multimodality；
+* high-dimensional output scalability；
+* 不需要显式计算 normalization constant 的稳定训练。([Sage Journals][3])
+
+### 真同构在哪里？
+
+不是：
+
+> image generation ≈ robot manipulation。
+
+这种属于假 analogy。
+
+真正结构同构是：
+
+$$
+\text{complex high-dimensional multimodal conditional output distribution}
+$$
+
+在两个领域中同时存在。
+
+Source：
+
+$$
+p(\text{image}\mid condition)
+$$
+
+Target：
+
+$$
+p(\text{action sequence}\mid observation).
+$$
+
+### Target-domain adaptation
+
+迁移并不是“直接套 DDPM”。
+
+robotics 新约束又逼出了：
+
+$$
+\text{action sequence prediction}
++
+\text{receding-horizon execution}
++
+\text{visual conditioning}
++
+\text{real-time inference}.
+$$
+
+尤其 action-sequence + receding horizon 同时处理 temporal consistency 和 closed-loop responsiveness。([Sage Journals][3])
+
+### Scientific Delta
+
+technical implementation 很多，但真正大的 scientific/conceptual delta 位于：
+
+> **机器人 policy 本身可以被重新视为一个高维条件生成分布，而 diffusion/score-based representation 提供了一种适合这一结构的 policy class。**
+
+作者甚至直接将 primary contribution 表述为把 diffusion 的这些性质带入 robotics 并证明它们有效。([Sage Journals][3])
+
+### 判决
+
+这是当前：
+
+> **representation transformation → structural mapping → Solution Principle → target adaptation**
+
+链条的强支持案例。
+
+但论文没有证据证明作者真的进行过“少量多个 Candidate Principles → killer test → 收敛”。
+
+所以：
+
+> **Principle competition 暂时不能从这个案例得到实证支持。**
+
+---
+
+# 5. Case 3 — Transporter Networks
+
+这是第一篇真正攻击当前主链的论文。
+
+### Research Problem
+
+已有 manipulation learning 两端都有问题：
+
+一端是 generic end-to-end learning，data inefficient；
+
+另一端是 object-centric representation，需要 pose/keypoint/object descriptor 等人为结构，而且面对 deformable、fluid、pile 等对象时，“object”本身就是脆弱表示。([Google Research][4])
+
+### 真正的 Insight
+
+它没有先找到一个外域 Solution Principle。
+
+它首先**改变了“什么东西正在被机器人操作”这个问题表示**：
+
+> manipulation 不一定是“识别 object → 操作 object”。
+
+而可以是：
+
+> **rearrangement = move a chunk of 3D space。**
+
+作者明确说，3D space 比 object 更一般，可以对应一个物体、物体的一部分或者多个物体。([Google Research][4])
+
+于是 Method 几乎直接长出来：
+
+$$
+\text{3D spatial rearrangement}
+\rightarrow
+\text{preserve spatial structure}
+\rightarrow
+\text{transport spatial features}
+\rightarrow
+\text{score possible rearrangements}.
+$$
+
+空间对称性、equivariance 和 sample efficiency 随这个 representation 自然产生。([Google Research][4])
+
+### 关键发现
+
+这里：
+
+> **Representation Change 本身就是 Principle generator。**
+
+它不是：
+
+$$
+RCA
+\rightarrow Required\ Mechanism
+\rightarrow Principle\ Search
+$$
+
+后面的一个辅助搜索技巧。
+
+更接近：
+
+$$
+Problem
+\rightarrow \boxed{Re-representation}
+\rightarrow New\ structure
+\rightarrow Principle
+\rightarrow Method.
+$$
+
+### 跨领域迁移？
+
+没有必要为了符合框架而制造一个 source domain。
+
+已有 computer vision / equivariance 思想当然构成知识背景，但论文核心形成逻辑不是：
+
+> Source problem → source intervention → structural analogy → transfer。
+
+强行这么描述反而会降低解释力。
+
+### Principle competition？
+
+目前也没有证据显示作者必须先构造多个不同 Principle 再比较。
+
+一旦选择：
+
+> “3D space 而非 object 是 atomic unit”
+
+方法空间已经被非常强地约束。
+
+### 判决
+
+这直接否定一种潜在的过强假设：
+
+> **Representation transformation 不能仅属于 Principle Search 的一个子操作。**
+
+它本身是一类独立的 Method-formation mechanism。
+
+这是第一项需要认真考虑的框架结构修改。
+
+---
+
+# 6. Case 4 — Non-Euclidean Motion Planning with GGCS
+
+这个反例更强。
+
+### Problem
+
+Graphs of Convex Sets trajectory optimization 的能力很强，但原 formulation 只适用于 **Euclidean configuration space**。
+
+机器人却天然包含：
+
+* continuous revolute joints；
+* mobile base rotation；
+* 更一般的 manifold-valued configurations。
+
+所以这里的障碍不是典型 empirical root cause，而是一个**formal domain mismatch**。([Sage Journals][5])
+
+### Formation
+
+观察到：
+
+$$
+\text{robot configuration space}
+\neq
+\mathbb{R}^n
+$$
+
+而是 Riemannian manifold。
+
+接下来数学结构几乎自己决定了方法：
+
+$$
+\text{Euclidean line}
+\rightarrow
+\text{geodesic}
+$$
+
+$$
+\text{convexity}
+\rightarrow
+\text{geodesic convexity}
+$$
+
+$$
+GCS
+\rightarrow
+GGCS.
+$$
+
+作者证明对于相关 configuration spaces，这一推广能够继承 Euclidean GCS 的保证。([Sage Journals][5])
+
+### 这里发生了什么？
+
+它不是典型：
+
+> failure → causal RCA → intervention。
+
+而是：
+
+> **formal obstruction → identify preserved mathematical structure → minimal generalization → inherit guarantees。**
+
+这里甚至很难合理构造“多个 Candidate Principles”。
+
+因为一旦要求：
+
+1. 保留 GCS 的核心优化结构；
+2. Configuration space 是 manifold；
+3. 需要与 intrinsic geometry 一致；
+
+geodesic convexity 几乎是被问题约束出来的。
+
+### 判决
+
+这反驳：
+
+> 所有高质量方法都需要 Principle competition。
+
+更准确的条件应该是：
+
+> **只有当问题对 Solution Principle 欠约束时，才需要主动保持多个 Principle。**
+
+当理论、几何或 invariance 已经高度约束解空间时，强制生成替代 Principle 反而是 artificial brainstorming。
+
+---
+
+# 7. Case 5 — SayCan
+
+这是另一种当前框架未明确描述的形成方式。
+
+### Contradiction
+
+LLM 有：
+
+$$
+\text{semantic/world knowledge}
+$$
+
+但没有：
+
+$$
+\text{embodied feasibility knowledge}.
+$$
+
+Robot policy/value function 有后一种知识，却缺少开放世界语言推理。
+
+所以问题本质并不是简单“LLM 做不好机器人”。
+
+而是：
+
+$$
+\text{useful action} \neq \text{executable action}.
+$$
+
+### Principle
+
+SayCan 将二者分离：
+
+$$
+P(\text{useful}\mid instruction)
+\times
+P(\text{possible}\mid state).
+$$
+
+LM 判断某 skill 对任务有没有用，affordance/value function 判断当前机器人能不能执行。([Google Research][6])
+
+### 重要之处
+
+这不是标准 structural analogy。
+
+没有明显：
+
+> Source Problem → Source Intervention → target isomorphism。
+
+更像：
+
+> **两个系统分别掌握互补但不完备的知识，将决策分解为独立约束，然后在共同 action interface 上组合。**
+
+我暂时把这一 formation mode 称为：
+
+> **Capability / Knowledge Complementarity**
+
+其核心 operator 是：
+
+$$
+\text{factorize missing knowledge}
+\rightarrow
+\text{find complementary capability}
+\rightarrow
+\text{construct interface}
+\rightarrow
+\text{compose constraints}.
+$$
+
+SayCan 的强贡献因此并不依赖非常大的 algorithmic delta。实验中 affordance grounding 显著减少错误，而核心结构本身相当简洁。([Google Research][6])
+
+### Scientific Delta
+
+主要不是“新网络”。
+
+而是建立：
+
+> **语言模型中的抽象知识，可以通过 embodiment-specific feasibility interface 被可靠转化为机器人可执行行为。**
+
+这非常符合你此前提出：
+
+> technical delta 小 ≠ scientific delta 小。
+
+### 判决
+
+当前 Methodology 缺少：
+
+> **complementarity search**
+
+它不能简单归入“结构同构搜索”。
+
+---
+
+# 8. Case 6 — Open X-Embodiment
+
+这是目前最重要的反例之一。
+
+### Research Question
+
+核心不是：
+
+> 某个已有方法为什么失败？
+
+而是一个更基本的 scientific possibility question：
+
+> **不同机器人 embodiment 之间的数据能否产生正迁移，从而像 vision/language 一样形成跨平台 generalist representation？**
+
+为回答它，研究首先必须创造一个此前不存在的 empirical substrate：
+
+* 22 种 robot embodiments；
+* 60 个已有 datasets；
+* 超过 100 万 real-robot trajectories；
+* 然后训练 RT-X 并测试跨 embodiment transfer。([Robotic Transformer X][7])
+
+结果显示高容量模型能够利用其他平台的数据提高多个机器人的能力。([Robotic Transformer X][7])
+
+### Formation structure
+
+这里更自然的链是：
+
+$$
+Scientific\ Question
+\rightarrow
+Missing\ empirical\ substrate
+\rightarrow
+Common\ representation/interface
+\rightarrow
+Dataset\ construction
+\rightarrow
+Large-scale\ test
+\rightarrow
+New\ evidence.
+$$
+
+不是：
+
+$$
+Root\ Cause
+\rightarrow
+Mechanism\ Change
+\rightarrow
+Intervention.
+$$
+
+### Scientific Delta
+
+大量 technical components 都不是全新的。
+
+贡献主要位于：
+
+$$
+\boxed{\text{evidence + capability + common interface + scale regime}}
+$$
+
+即：
+
+> 跨 embodiment positive transfer 在足够规模、统一接口下确实能够发生。
+
+而这篇论文拿到了 ICRA 2024 Best Conference Paper Award。([IEEE实体网站][1])
+
+因此它是非常强的实证反例：
+
+> **顶级科研 Method Design 不一定始于一个待修复的 mechanism-level failure。它也可以始于一个重要但尚未回答的 scientific possibility question。**
+
+---
+
+# 9. Case 7 — ALOHA + ACT
+
+这篇对“minimal composition”特别有价值。
+
+它先提出系统级问题：
+
+> fine bimanual manipulation 通常依赖昂贵机器人、高精度 sensing/calibration；能不能让低成本、不精确硬件完成这些任务？
+
+采用 imitation learning 后，又暴露第二层问题：
+
+> policy error 会随时间累积并离开 demonstration distribution。
+
+于是 ACT 的核心改动非常直接：
+
+$$
+\text{single-step prediction}
+\rightarrow
+\text{action chunk prediction}
+\rightarrow
+\text{shorter effective horizon}.
+$$
+
+这是论文摘要自己明确给出的因果解释。([机器人学：科学与系统][8])
+
+ACT 再用 Transformer + CVAE 实现 action-sequence generation。([Tony Z. Zhao][9])
+
+所以这篇并不是单一：
+
+$$
+RootCause \rightarrow Principle
+$$
+
+而是一个 **bottleneck cascade**：
+
+$$
+\text{expensive data acquisition}
+\rightarrow teleoperation/hardware design
+$$
+
+随后：
+
+$$
+\text{imitation horizon problem}
+\rightarrow action chunking.
+$$
+
+这说明“组合多个模块”并不天然是 method soup。
+
+真正判断标准应该是：
+
+> **每一个核心模块是否对应一个独立、必要且已经证明存在的 bottleneck。**
+
+这与你当前的“对真实残余机制缺口进行必要的最小组合”高度一致，但应该允许多个 root/bottleneck 构成层级结构，而不是默认只有一个 RCA。
+
+---
+
+# 10. Case 8 — NMI：Identifying Important Sensory Feedback
+
+这是一个非常干净的 **measurement-first** 反例。
+
+问题不是“怎样做一个更强 locomotion controller”，而是：
+
+> DRL locomotion 到底依赖哪些 feedback states？哪些是 essential、necessary、redundant？
+
+过去主要靠经验和 qualitative ablation，没有定量 state importance。作者因此设计 systematic saliency analysis，对反馈状态重要性进行定量测量，再利用发现的 minimal feedback states 训练其他 gait。([Nature][10])
+
+所以核心逻辑是：
+
+$$
+Unknown\ scientific\ quantity
+\rightarrow
+Measurement\ principle
+\rightarrow
+Identification
+\rightarrow
+scientific\ knowledge
+\rightarrow
+design\ implication.
+$$
+
+它的 Scientific Delta 主要在：
+
+> **evidence / quantitative understanding / sensing boundary**
+
+而不是新的 control algorithm。([Nature][10])
+
+这进一步否定：
+
+> 所有值得发表的方法都必须以“改变 Root Cause 的 intervention”为中心。
+
+---
+
+# 11. 第一轮跨案例结论
+
+现在可以对当前四个核心认知能力做第一次真正的证伪判断：
+
+| 当前假设                                      | 第一轮证据                                                                                               |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **Problem representation transformation** | **强支持，而且当前地位可能过低。** Transporter、GGCS 表明它可以直接生成 Method，而非只是 Principle Search 技巧。                     |
+| **真同构识别 → Principle transfer**            | **强支持，但仅适用于一类论文。** Diffusion Policy 是强例；contact smoothing 更进一步显示 cross-paradigm mechanism transfer。 |
+| **少量 Candidate Principle competition**    | **不能作为普遍必要步骤。** GGCS、Transporter 等存在 solution space 被结构强约束的情况。                                      |
+| **Evidence-driven early convergence**     | **作为规范性方法非常合理，但目前尚缺真实 formation evidence。** 论文中的最终 ablation/validation 不能自动证明作者当初就是这样筛掉路线的。         |
+
+---
+
+# 12. 当前框架已经暴露出的 5 个结构性缺口
+
+这五点是目前最重要的结果，而不是简单增加几个 paper examples。
+
+1. **Root Cause 不是所有 Method formation 的统一起点。**
+   Failure-remedy 工作适合 RCA；Open X 属于 scientific possibility question；NMI sensory feedback 属于 unknown-identification；GGCS 属于 formal obstruction。把后三者强行写成 RCA 会扭曲真实科研逻辑。
+
+2. **Representation transformation 应升格。**
+   它不仅“扩大 Principle 搜索空间”，有些论文中它本身就是决定性 scientific act：
+
+   $$
+   \text{object}\rightarrow\text{3D space},\quad
+   \mathbb R^n\rightarrow\text{manifold}.
+   $$
+
+3. **Principle generation 不止 analogy/transfer。**
+   第一批论文已经至少出现：
+
+   $$
+   \text{mechanism transfer},
+   \text{representation construction},
+   \text{formal generalization},
+   \text{capability complementarity},
+   \text{measurement construction}.
+   $$
+
+4. **Principle competition 应由 underdetermination 触发，而非机械必做。**
+   当多个机制都合理时需要 C-K/Strong Inference；当 invariance、geometry、formal constraints 已经几乎确定解空间时，强制发散只会制造低质量 alternatives。
+
+5. **Scientific Delta 检查是必要的，而且当前定义基本正确。**
+   Open X 和 sensory-feedback paper 明确证明：
+
+   $$
+   strong\ contribution
+   \not\Rightarrow
+   large\ algorithmic\ delta.
+   $$
+
+   Delta 可以主要落在 evidence、representation、boundary、interface、capability 或新的 empirical regime。
+
+---
+
+# 13. 因而目前更可能存在的是“多种 Method-formation modes”
+
+这还**不是最终 Phase I Methodology**，只是第一轮证据产生的 working hypothesis：
+
+$$
+Research\ Question
+$$
+
+首先不应机械进入 RCA，而应该识别究竟是什么在阻止知识或能力前进：
+
+| Formation driver                      | 自然形成路径                                                                   |
+| ------------------------------------- | ------------------------------------------------------------------------ |
+| **Observed failure**                  | mechanism-level RCA → required mechanism change → intervention principle |
+| **Contradiction / anomaly**           | incompatible observations → hidden mechanism → principle                 |
+| **Representation mismatch**           | reformulation → exposed structure/invariance → method                    |
+| **Formal obstruction**                | violated mathematical assumption → structure-preserving generalization   |
+| **Missing knowledge / measurement**   | identifiable quantity → measurement/experiment → knowledge               |
+| **Complementary capabilities**        | capability factorization → common interface → principled composition     |
+| **Unanswered possibility hypothesis** | required empirical substrate → decisive experiment / scaling study       |
+| **Multiple coupled bottlenecks**      | bottleneck decomposition → minimal causally justified co-design          |
+
+然后这些 mode **共同调用**你非常重视的认知操作：
+
+> 第一性原理、问题重表示、同领域搜索、跨领域同构搜索、跨 paradigm mechanism search、Knowledge expansion。
+
+这比把所有论文都压成一个固定线性：
+
+$$
+RCA\rightarrow Principle
+$$
+
+更接近目前观察到的顶级科研实际。
+
+---
+
+## 当前最关键的判断
+
+第一轮证据**没有推翻你最有价值的核心科研风格**：
+
+> 从机制出发，主动跨领域寻找结构同构、抽象 Solution Principle，再验证迁移边界。
+
+相反，**Diffusion Policy 和 contact-smoothing paper 对这条路线提供了非常强的支持**。([Google Sites][2])
+
+真正被证伪的是另一件事：
+
+> **不能把这条个人高价值创新策略误写成所有顶级 Method formation 的统一本体论。**
+
+更可能的最终结构是：
+
+> **统一的科研判断骨架 + 多种 Method-formation operators，其中跨领域 mechanism transfer 是必须主动搜索的核心个人策略，而不是唯一生成机制。**
+
+下一批最应该继续攻击的不是再找几个 Diffusion Policy 式正例，而是专门选择 **“看上去完全没有 RCA / analogy / principle competition，却依然是顶级贡献”** 的论文，把上述 8 类 formation mode 继续压缩、合并或证伪。这样 Step 3 最后得到的才会是一个足以写入 ARIS 的方法论，而不是对当前框架的案例包装。
+
+[1]: https://ewh.ieee.org/soc/ras/conf/fullysponsored/icra/icra%202024/awards-and-finalists/index.html "Awards and Finalists - 2024 IEEE International Conference on Robotics and Automation (ICRA 2024)"
+[2]: https://sites.google.com/view/global-planning-contact/home "global_planning_contact"
+[3]: https://journals.sagepub.com/doi/full/10.1177/02783649241273668 "Diffusion policy: Visuomotor policy learning via action diffusion - Cheng Chi, Zhenjia Xu, Siyuan Feng, Eric Cousineau, Yilun Du, Benjamin Burchfiel, Russ Tedrake, Shuran Song, 2025"
+[4]: https://research.google/blog/rearranging-the-visual-world/ "Rearranging the Visual World"
+[5]: https://journals.sagepub.com/doi/10.1177/02783649241302419 "Non-Euclidean motion planning with graphs of geodesically convex sets - Thomas Cohn, Mark Petersen, Max Simchowitz, Russ Tedrake, 2025"
+[6]: https://research.google/blog/towards-helpful-robots-grounding-language-in-robotic-affordances/?version=v1 "Towards Helpful Robots: Grounding Language in Robotic Affordances"
+[7]: https://robotic-transformer-x.github.io/ "Open X-Embodiment: Robotic Learning Datasets and RT-X Models"
+[8]: https://roboticsproceedings.org/rss19/p016.html?utm_source=chatgpt.com "Robotics: Science and Systems XIX - Online Proceedings"
+[9]: https://tonyzhaozh.github.io/aloha/ "tonyzhaozh.github.io"
+[10]: https://www.nature.com/articles/s42256-023-00701-w?utm_source=chatgpt.com "Identifying important sensory feedback for learning locomotion skills | Nature Machine Intelligence"

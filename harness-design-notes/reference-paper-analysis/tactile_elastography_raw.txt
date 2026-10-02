@@ -1,0 +1,1682 @@
+3722 IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+Tactile Elastography
+Yichen Xiang , Lifeng Zhu , Member, IEEE, Aiguo Song , Senior Member, IEEE, and Yongjie Jessica Zhang
+Abstract—Elasticity is one of the representative parameters that
+reflect the mechanical properties of soft materials. Detecting the
+underneath elasticity distribution called elastography is a key step
+for understanding and interacting with objects. Existing solutions
+for capturing the interior elasticity distribution typically rely on
+expensive apparatus. In this work, the dense tactile signal captured
+by the high-resolution vision-based tactile sensor is introduced as
+a new modality for reconstructing 3-D elasticity distribution. We
+propose a model-based method, which exploits the tactile maps
+from active pressing trials for the elastography task. The interior
+elasticity distribution for nonrigid objects is reconstructed from an
+inverse physics model. We analyze the credibility of the estimated
+elasticity distribution obtained from our method. Varying design
+factors are also discussed. We experiment our method on a set
+of synthesized 3-D models and physical models in robot-assisted
+scenes. Various experimental results have been gathered, demon-
+strating the efficacy of our approach in perceiving elasticity distri-
+bution.
+Index Terms—Force and tactile sensing, object detection,
+segmentation and categorization, soft sensors and actuators, vision-
+based tactile perception.
+NOMENCLATURE
+Variables and Definitions
+Symbol Meaning.
+e∗
+Initial guess of the object’s elasticity distribution.
+egt Ground-truth elasticity distribution of the object.
+ê Estimated elasticity distribution of the object.
+û Predicted nodal displacements of the object.
+Received 17 January 2025; revised 17 March 2025; accepted 24 April 2025.
+Date of publication 6 June 2025; date of current version 23 June 2025. This
+work was supported in part by the National Key Technologies R&D Program
+under Grant 2024YFB4708802, in part by the NSFC under Grant 62133009 and
+Grant 92148205, in part by the Natural Science Foundation of Jiangsu Province
+Major Project under Grant BK20232008, in part by the Jiangsu Key Research
+and Development Plan under Grant BE2023023-4, in part by the Fundamental
+Research Funds for the Central Universities. This article was recommended for
+publication by Associate Editor V. Ho and Editor A. Menciassi upon evaluation
+of the reviewers’ comments. (Corresponding author: Lifeng Zhu.)
+This work involved human subjects or animals in its research. Approval of
+all ethical and experimental procedures and protocols was granted by the IEC
+for Clinical Research of Zhongda Hospital, Affiliated to Southeast University
+(under Application No. 2023ZDSYLL343-P01, and performed in line with the
+Declaration of Helsinki (2013), the CIOMS International Ethical Guidelines
+(2016), and relevant Chinese regulatory standards).
+Yichen Xiang, Lifeng Zhu, and Aiguo Song are with the State Key Laboratory
+of Digital Medical Engineering, Jiangsu Key Lab of Robot Sensing and Control,
+School of Instrument Science and Engineering, Southeast University, Nan-
+jing 210096, China (e-mail: 230239001@seu.edu.cn; lifengzhu@seu.edu.cn;
+a.g.song@seu.edu.cn).
+Yongjie Jessica Zhang is with the Computational Bio-modeling Laboratory,
+Department of Mechanical Engineering, Carnegie Mellon University, Pitts-
+burgh, PA 15213 USA (e-mail: jessicaz@andrew.cmu.edu).
+This article has supplementary downloadable material available at
+https://doi.org/10.1109/TRO.2025.3577024, provided by the authors.
+Digital Object Identifier 10.1109/TRO.2025.3577024
+u, e Nodal displacements and elasticity distribution of
+the object.
+uo, fo Observable nodal displacements and nodal forces
+on the object.
+us, fs, es Nodal displacements, nodal forces and elasticity
+distribution of the sensor.
+F Deformation gradient.
+λ, μ Lame constants.
+A(i)
+Constraint matrix for boundary condition in the ith
+sampling with the stiffness of a zero-length spring.
+S(i)
+Selection matrix for touching points in the ith sam-
+pling.
+n, m Number of object’s nodes and elements.
+ns, ms Number of sensor’s nodes and elements.
+nc Number of contact nodes on the object surface.
+I. INTRODUCTION
+INSPECTING underneath material distribution is a long-
+awaited ability for humans. Since the invention of computer
+tomography, magnetic resonance imaging, ultrasound, and other
+imaging techniques, humans have been able to observe the inter-
+nal structures of various objects without destroying them. Many
+medical and industrial applications are promoted, significantly
+benefiting human life. However, precise imaging of the internal
+3-D field is at the cost of expensive and bulky instruments, which
+are not easily accessible to the population and we are still in
+search of new imaging modalities.
+On the other side, humans are able to perceive the internal
+structures of soft objects without using expensive equipment.
+For example, experienced doctors could estimate the lumps
+inside the skin by actively touching the soft tissue with their
+fingers. During the palpation process, they might even feel its
+hardness and decide whether further treatment is required from
+their expertise. Inspired by the manual palpation, we will explore
+whether robots could also understand the haptic information for
+imaging the interior distribution of soft matters.
+Robot-assisted palpation has been studied in the literature.
+Researchers proposed to utilize the haptic and proprioceptive
+information by probing soft materials for lump detection [1], [2],
+[3], [4], [5], [6]. While positive statistics are reported, the results
+are dependent on the collected training data, which probably
+overfit to the tested phantom model. In addition, the goal of
+lump detection or localization is also far from the imaging task.
+The task of lump detection only provides boolean or rough low-
+dimensional vector information of the position and scale of the
+lump, but imaging aims to generate a rich field of the material
+distribution.
+1941-0468 © 2025 IEEE. All rights reserved, including rights for text and data mining, and training of artificial intelligence and similar technologies.
+Personal use is permitted, but republication/redistribution requires IEEE permission. See https://www.ieee.org/publications/rights/index.html for more information.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 07,2025 at 08:40:17 UTC from IEEE Xplore. Restrictions apply.
+XIANG et al.: TACTILE ELASTOGRAPHY 3723
+Fig. 1. Proposed robot-assisted tactile elastography leverages tactile informa-
+tion to image the invisible 3-D interior elasticity distribution. A physics model
+is adopted to estimate the stiffness distribution within the skin and provide
+credibility for the elastography measurements.
+While it seems difficult to recover the 3-D distribution of
+soft materials, we note that the deformation of soft objects
+depends on their material distribution. It is verified that the
+constitutive material could be estimated from captured deforma-
+tion [7], [8], which is assumed visually available in simulated
+environments. Various interior characteristics cause different
+extrinsic responses to the same stimulation, allowing us to
+infer them from the extrinsic information. This idea follows
+the concept of “elastography,” which has been recognized in
+ultrasound imaging. The density field, which is also related to
+the elastic property of the object, causes different responses
+to the ultrasound stimulation [9]. Therefore, we may estimate
+and plot the distribution of elastic material from ultrasounds,
+producing elastography thereafter. In this work, following a
+similar approach to estimating material distribution from elastic
+behavior, we aim to exploit heuristic data in palpation. Our goal
+is to study the mapping of proprioceptive and haptic information
+to the 3-D material distribution.
+Recent advances in tactile sensor development also shed
+light on our task. Traditionally, it is not effective to infer the
+rich 3-D material distribution from low-dimensional force sig-
+nals. Recently, tactile information with high spatial resolution
+has become available with the miniaturization of tactile sen-
+sors [10], [11] and the popularization of vision-based tactile
+techniques [12]. By installing them on robotic manipulators, we
+expect to extract versatile signals to facilitate the recovery of
+material distribution.
+In this work, as our goal is to image the 3-D material distribu-
+tion from the tactile information collected in palpation, we will
+call our work “tactile elastography” throughout the article. Fig. 1
+provides a visual overview of our system. We actively press the
+target object with a tactile sensor and sample tactile images as
+the input of tactile elastography. We build an inverse physics
+model to study the elastic material in terms of the distribution of
+Young’s modulus, to fit the acquired tactile signals. We analyze
+the sensitivity of our model to provide credibility measurements
+of the elastography results. Our method is experimented with
+various configurations in a simulated environment and tested
+using vision-based tactile sensors on real-world soft objects. As
+an application of our system, we also show the advantages of
+our imaging technique compared to learning-based solutions for
+lump detection using robot-assisted palpation. The key contri-
+bution of our work can be summarized as follows.
+1) Dense vision-based tactile information with higher spatial
+acuity is introduced for estimating the interior elasticity
+distribution of nonrigid objects.
+2) A model-based solution is developed for elastography
+from tactile signals with its credibility analyzed.
+3) Our method is experimented with different cases and
+potential applications in robot-assisted palpation are pro-
+posed.
+II. RELATED WORK
+A. Elastography
+As an elasticity imaging approach, elastography is developed
+to display elasticity distribution in soft tissues. Typical solu-
+tions such as mechanical imaging (MI), ultrasonic elastography
+(USE), magnetic resonance elastography (MRE), and optical co-
+herence elastography (OCE) have been developed. USE, MRE,
+and OCE methods were developed based on current ultrasonic
+imaging [3], [13], [14], [15], magnetic resonance imaging [16],
+[17], and optical coherence tomography [18], which could be
+based on static [19], [20] or dynamic methods [21]. The MI de-
+vices for elasticity imaging were described in the literature [22],
+[23], [24], which provided an alternative semiempirical way of
+3-D image formation. Most elastography methods, regardless of
+the modality, share a common framework consisting of a stim-
+ulation device, a receiver, and an inverse solver. These methods
+rely on various modalities, including ultrasound, optical waves,
+force, or magnetic fields. In this article, we aim to investigate the
+response of materials using a new modality, tactile, and explore
+its potential for revealing the interior distribution of materials.
+Unlike conventional imaging modalities that require expensive
+equipment, tactile data is more accessible, thanks to advances
+in tactile sensors introduced by the robotics community.
+Researchers also tried to perceive the object tissue purely
+through mechanical signals such as force and surface defor-
+mation using physics-based algorithms. Sangpradit et al. [4]
+proposed a tumor localization method using rolling indenta-
+tion based on inverse finite element analysis. However, it only
+allowed the detection of the tumor position when its material
+properties were known or estimated the tumor elasticity when
+its location was given. Olson et al. [25] proposed a system
+to automate the manual breast exam process and generated
+a binary stiffness map of the breast with a bulky mechani-
+cal device. Differently, we propose to exploit the power of
+light tactile sensors for continuously estimating the elasticity
+distribution.
+Mapping the material properties is also one task in computer
+vision. Material properties were designed to fit the desired
+animation captured as point clouds [26] or reproduce the tar-
+get forces [27]. Researchers also proposed to work with the
+vibration captured from videos for estimating the object mate-
+rial [7], [8]. However, the vision-based methods are susceptible
+to environmental light and materials interference. In contrast,
+tactile information directly measures the material’s response
+through physical contact with the object, making it independent
+of lighting conditions. This allows tactile sensors to capture
+data even in challenging environments, such as those with poor
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 07,2025 at 08:40:17 UTC from IEEE Xplore. Restrictions apply.
+3724 IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+lighting or highly reflective surfaces, where vision-based meth-
+ods may encounter significant interference. In this article, we
+will study the tactile information for elastography to avoid these
+problems.
+B. Vision-Based Tactile Sensor
+Vision-based tactile sensors have emerged as a novel fingertip
+in robot touch for their high spatial resolution and abundant
+outputs [12]. Based on these sensors, various tasks of estimat-
+ing the material properties have been reported. For instance,
+physics-driven and data-driven approaches for estimating liquid
+properties, such as height [28] and viscosity [29], have been
+proposed through grasp manipulation with vision-based sensors.
+Except for liquid properties, hardness [30] and texture [31] can
+also be computed to assist robots in recognizing and distinguish-
+ing objects.
+Jia et al. [32] evaluated the perception sensitivity of the
+vision-based tactile system for inclusions by observing the hump
+that forms over the inclusions. They concluded that the Gelsight
+sensor [33], [34] is more sensitive than human fingertips and
+previous tactile lump detectors. However, these works only
+roughly estimate the lump map by directly showing the tactile
+images. In this article, we make a further step based on these
+works to estimate the 3-D elasticity distribution inside the target
+object from vision-based tactile signals.
+C. Robot-Assisted Palpation
+Most previous robot-assisted palpation methods are based on
+unidirectional pressing and sliding. Several earlier methods de-
+pend on pressing and generating a tactile map on the surface [1],
+[2], [35], [36]. Kim et al. [37] designed an exemplar circular
+probe for lump palpation using the contact pressure distribution
+in sliding. These methods only produce a 2-D distribution of
+properties on contact surfaces. Inspired by the actual finger
+motions in palpation, Ahn et al. [5] located abnormal tissue in
+the diagnosis of prostate cancers.
+With the popularity of machine learning techniques, more
+methods based on neural networks have been applied in the
+palpation of abnormal inclusions. Xiao et al. [6] used a palpation
+probe equipped with a force sensor to capture force and displace-
+ment signals. It estimates the depth of the inclusion through deep
+recurrent neural networks. With the high dimensional tactile
+array assembled in the robot end-effector, Zhou et al. [38] solved
+theclassificationproblemoftumordepthestimationbasedonthe
+2-D convolutional neural network with long short-term memory
+structures. However, these methods rely on well-collected train-
+ing data and only classify the depth in a small set of quantified
+values. Users are not able to observe the morphology of the
+inclusions.
+III. METHOD
+A. Overview
+Our goal of tactile elastography is to reconstruct the internal
+elasticity distribution of interactive soft materials through ex-
+ternal observed contacts. We sample t steps of tactile signals
+during a single press, capturing both the nodal displacements
+x
+(i)
+s ∈ R3ns
+and the global displacement of the sensor d(i)
+∈ R3
+at each step i, where ns represents the number of nodes on
+the sensor. The data sequence {x
+(i)
+s , d(i)
+}i=1,2,...,t encode the
+time-varying tactile information for pressing excitation. With
+the sensor’s initial configuration known as x
+(0)
+s ∈ R3ns
+, the
+deformation at each node v and step i is computed as u
+(i)
+s (v) =
+x
+(i)
+s (v) − x
+(0)
+s (v). The number of nodes in the object geometry
+is denoted as n. Assuming the initial geometry x(0)
+∈ R3n
+of the
+object is known from vision-based reconstructions [39], we aim
+to determine the distribution of the object’s Young’s modulus,
+which reflects material softness [40]. This modulus is discretized
+into elements e = {e1, . . ., em} ∈ Rm
+, where m is the number
+of elements and ei represents the modulus of the ith element.
+Given that vision-based tactile sensors feature soft layers
+sensitive to deformation, we hypothesize that these deformations
+serve as indicators of the object’s internal elasticity. However,
+deriving the elasticity distribution from surface contact signals
+is complex due to dependencies on contact dynamics and ma-
+terial properties. Therefore, modeling the relationship between
+tactile data and the elasticity map is necessary. We employ the
+finite element method (FEM) to address the inverse problem of
+estimating material properties from observed deformations.
+Our methodology involves a pipeline (see Fig. 2) that uses
+simulation tools to tackle the challenges of tactile elastography.
+Wesetnodepositionsonthetactilesensorandthesensor’sglobal
+displacements as inputs. Based on the static equilibrium of the
+sensor model, the external force f
+(i)
+s ∈ R3ns
+on the sensor is
+obtained by FEM using the deformation field u
+(i)
+s ∈ R3ns
+at
+each sampling step i. We calculate the external force f
+(i)
+o ∈ R3n
+using force equilibrium at the contact points. We then convert
+sensor deformations u
+(i)
+s to global coordinates to match with the
+object’s deformations u
+(i)
+o ∈ R3nc
+, where nc is the number of
+contact surface nodes. An initial guess of elasticity distribution
+e∗
+∈ Rm
+informs an optimization process to refine the estimate
+ê ∈ Rm
+, ensuring the simulated deformation û ∈ R3n
+fits the
+observed deformation uo.
+This work assumes quasistatic motion, no slip at the con-
+tact interface, and isotropic material properties, simplifying our
+analysis and ensuring stability in our tactile measurements. We
+summarize all the key variables in Nomenclature. Because both
+the sensor and the target object are involved in the computation,
+we use the subscripts s to indicate the corresponding physical
+quantities on the sensor. At the same time, as we actively sample
+many frames from each pressing trial, we use the superscript (i)
+to indicate the signal at the ith time step, while we keep using the
+same superscript at the 0th time step to denote the rest geometry.
+B. Simulation Model
+In a system of materials subjected to forced deformation,
+obtaining a closed-form solution for the equilibrium differential
+equations of a continuum hyperelastic body is challenging.
+Therefore, given the object’s geometry, we use FEM to simulate
+its elastic energy and deformation during interaction. Since
+we also aim to optimize the material distribution using the
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 07,2025 at 08:40:17 UTC from IEEE Xplore. Restrictions apply.
+XIANG et al.: TACTILE ELASTOGRAPHY 3725
+Fig. 2. Overall framework of tactile elastography. At the sampling step i, nodal positions x
+(i)
+s , and displacements u
+(i)
+s on the tactile surface are obtained during
+the pressing process. Contact forces on the sensor fs and the object fo are computed through forward simulation. In the optimization block, a suitable elasticity
+distribution e is identified to minimize the difference between the predicted deformation û under the external force fo and the observed displacement uo on the
+target object.
+simulation model as the predictor, we couple a simple elasticity
+distribution representation with the FEM of the soft object.
+Suppose the target object is meshed into n nodes and m
+elements (tetrahedra for 3-D cases). The nodal displacements
+are written as u, and fo represents the observable external nodal
+force. The energy in the whole system can be estimated as
+follows:
+E(u; e, fo) = Ed(u; e) + Ec(u) + Ef (u, fo). (1)
+The overall energy of the quasistatic model consists of the elastic
+potential energy Ed(u; e), the constraint energy Ec(u), and the
+force potential Ef (u, fo) in the loaded system.
+1) ElasticPotentialEnergy: Theelasticpotentialisproduced
+by the deformation of elastic objects. In this work, we employ the
+Neo-Hookean material model, and the elastic potential energy
+density Ψ in an element is as follows:
+Ψ(u; e) =
+μ
+2
+tr(FT
+F − I) − μ ln J +
+λ
+2
+(ln J)2
+(2)
+where F ∈ R3×3
+is the deformation gradient, I ∈ R3×3
+is an
+identity matrix, J = det(F) represents the Jacobian matrix, λ =
+eν/(1 + ν)(1 − 2ν), μ = e/2(1 + ν) are the Lame constraints,
+e is the value of Young’s modulus, and ν is the Poisson’s ratio.
+The total elastic potential energy is computed as the volume-
+weighted summation of the elastic potential density.
+2) Constraint Energy: We formulate constraint energy by
+defining zero-length springs on the fixing nodes, which ensures
+the bottom of the object to be tested is fixed in the simulated
+environment. We have
+Ec(u) =
+1
+2
+||Au||2 (3)
+where A ∈ R3n×3n
+is defined as A = kcC, C ∈ R3n×3n
+is the
+selection matrix for the constraint nodes, and kc is the stiffness
+of the constraint zero-length spring.
+3) Force Potential Energy: The force potential Ef is gained
+by loaded force, namely, the gravitational potential energy
+Eg(u) and the external force potential Eo(u, fo) in our settings.
+We have
+Ef (u; fo) = Eg(u) + Eo(u, fo) = mT
+gh − fou (4)
+where m ∈ Rn
+is the mass vector associated with the nodes, g is
+the gravitational constant, and h ∈ Rn
+is the vector containing
+the heights of nodes, which are determined by the displacement
+of each node.
+In forward simulation for the object, an optimization formu-
+lation is introduced to find the solution of u in the quasistatic
+system
+û = argmin
+u
+E(u; e, fo). (5)
+The optimized deformation û ∈ R3n
+with the minimal energy
+in the overall system meets the first-order condition mentioned
+as force equilibrium as follows:
+f(u; e, fo) = − ∂E(u; e, fo)/∂u
+=
+ u
+0
+K(u; e)du−A(u−u
+) − (mT
+g − fo) = 0
+(6)
+where K(u; e) = −∂2
+φ
+∂u2 ∈ R3n×3n
+is the global stiffness matrix
+for the object. In order to solve the deformation u given the
+externalforcefo fromtheaboveequation,numericalmethodsare
+commonly used and we choose the Newton–Raphson method in
+our implementation.
+At the other end, we compute the force fs exerted on the sensor
+by implementing the forward simulation for the sensor. Given
+themeasureddeformationus andtheknownmaterialparameters
+es of the soft layer, the nodal force fs is the solution of the linear
+equation f(us; es, fs) = 0.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 07,2025 at 08:40:17 UTC from IEEE Xplore. Restrictions apply.
+3726 IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+C. Inverse Problem
+In the preceding section, we formulate a quasistatic forward
+model to compute the corresponding nodal displacement û to an
+elasticity distribution e among elements with an observed nodal
+forces fo. Here, by perceiving the nodal displacement uo on the
+contact surface, we propose an inverse formulation of the for-
+ward model aimed at reconstructing elasticity distribution e of
+the object. We encode the goal that the simulated displacements
+u match the observed deformation field uo into the reduced form
+of shape objective
+Ôshape(e) = Oshape( ˆ
+u(e)) =
+1
+2
+t
+
+i=1
+||S(i)
+û(i)
+(e) − u(i)
+o ||2
+2 (7)
+where S(i)
+∈ R3nc×3n
+, and û(i)
+are the selection matrix, the
+current nodal displacement in the ith sample, respectively. Given
+an initial value e∗
+, we seek the optimal ê by a truncated-Newton
+method (TNC) to minimize the Ôshape as follows:
+ê = argmin
+e
+Ôshape(e) (8)
+which approximates the deformation of the object to the ob-
+servations. The corresponding gradient
+dÔshape
+de is necessary for
+performing the optimization in (8). Applying the chain rule, we
+have the following:
+dÔshape
+de
+=
+t
+
+i=1
+∂Oshape
+∂û(i)
+dû(i)
+de
+. (9)
+Based on the static equilibrium discussed in Section III-B,
+we have f( ˆ
+u(e); e, fo) = 0. Because the external forces fo on
+the object is known, we yield a total derivative of the resultant
+force
+df
+de
+=
+∂f
+∂e
++
+∂f
+∂û
+dû
+de
+= 0. (10)
+It contributes to the computing of dû
+de = −( ∂f
+∂û )−1 ∂f
+∂e , where
+both of the partial derivatives are easily accessible. Since the
+expression of f is given in (6), we have ∂f
+∂û = K(û; e) − A. For
+the partial derivative of f with respect to the element elasticity
+e, we have
+∂f
+∂e
+= [fint(û, a1), . . ., fint(û, aj), . . .] (11)
+where the internal nodal elastic force fint(û, e) can be ob-
+tained as the gradient of the elastic potential ∂φ
+∂û , a1 =
+[1, 0, .., 0], . . ., aj = [0, ..1, . . ., 0], j = 1, . . ., m is a set of or-
+thogonal basis vectors. Hence, the gradient is formulated as
+follows using the chain rule:
+dÔshape
+de
+= −
+t
+
+i=1
+(S(i)
+û(i)
+− u(i)
+o )
+dû
+de
+|û=û(i) (12)
+dû
+de
+|û=û(i) = −(K(û(i)
+; e) − A(i)
+)
+−1 ∂f
+∂e
+|û=û(i) (13)
+where K(û(i)
+; e) and A(i)
+are the global stiffness matrix and the
+constraint matrix at the ith time step, respectively. The inverse
+Algorithm 1: Inverse Solver.
+DATA External force fo, target nodal displacement uo,
+initial elastic distribution e∗
+RESULT Elasticity distribution e
+e ← e∗
+i ← 0, dÔshape/de ← ∞
+While dÔshape/de>
+While i<p
+û(i)
+← ForwardSimulator(e, f
+(i)
+o )
+Ôshape,i = 1
+2 ||S(i)
+û(i)
+− u
+(i)
+o ||2
+dÔshape,i/de ← GradientSolver(Ô
+(i)
+shape, e)
+i ← i + 1
+dÔshape/de ← Sum(dÔ
+(i)
+shape/de)
+e ← e + TNC(dÔshape/de)
+solver is shown in Algorithm 1. To ensure that forward simula-
+tion will not cause excessive distortion, we set upper bound eu
+and lower bound el for Young’s modulus in optimization.
+D. Sensitivity Analysis
+In this section, our primary focus lies on investigating whether
+the interior stiffness distribution is reliably estimated simply
+from the surface observable. We leverage a derivative-based
+local approach for sensitivity analysis, aiming at assessing how
+material perturbations affect the surface deformation observed
+by the tactile sensor. From our previous physics-based model,
+we derive the Jacobian matrix of nodal displacement concerning
+Young’s modulus, denoted as dû
+de in (13). This n × m matrix’s
+(i, j)th element represents the change in displacement of the ith
+node due to infinitesimal perturbation in the stiffness of the jth
+element within the object. We further apply a selection matrix
+S to focus on the observable deformation of the surface nodes,
+yielding
+Mnc×m = Snc×n
+dû
+de n×m
+. (14)
+Thus, with the matrix M = [mi,j] ∈ Rnc×m
+, the sensitivity of
+the ith surface node to the stiffness update of the jth element is
+given by mi,j.
+1) Credibility Metric: To facilitate the visualization of sen-
+sitivity, we define a relative credibility metric.
+L(j) = max
+i
+|mi,j|, i = 1, . . ., ns, j = 1, . . ., m (15)
+which indicates the maximum influence of the stiffness of the
+jth element on the surface deformation. If the credibility metric
+for a specific element is low, the error in its estimated stiffness
+will cause only a tiny difference in the surface deformation,
+which may not be detected by the tactile sensor, resulting in an
+unreliable stiffness estimation for that element. Consequently,
+we expect the stiffness estimation to be more reliable at positions
+where the credibility metric is high.
+2) Influence Factors of Credibility: We use a representative
+model to visualize the credibility metric intuitively. In Fig. 3,
+we select a unit cube model with homogeneous material, with
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 07,2025 at 08:40:17 UTC from IEEE Xplore. Restrictions apply.
+XIANG et al.: TACTILE ELASTOGRAPHY 3727
+Fig. 3. Sensitivity of elastography results with respect to depth. The integrated
+credibility metric is plotted along slices of the z-axis under varying external
+pressure for objects with different stiffness levels. The observed tactile signals
+exhibit greater sensitivity to the material properties at shallower layers.
+Young’s modulus values of 5 MPa, 7.5 MPa, and 10 MPa.
+Different pressures (0.06 MPa, 0.10 MPa, and 0.14 MPa) are
+applied to the top of the model to investigate the distribution
+of the credibility metric for the estimated stiffness from tactile
+elastography. Since the credibility metric forms a scalar field
+within the target object, we plot slices of heat maps at various
+layers to visualize the credibility, as shown in the subplots
+of Fig. 3. The figure indicates that elements in the shallow
+layers exhibit greater reliability. Within the same layer, surface
+deformation is more sensitive to elements near the boundary,
+while the elasticity of deeper elements contributes less to the
+surface deformation.
+We further examine the differences in credibility levels when
+objects with varying stiffness are subjected to different pressure
+levels. We integrate the credibility metric across different layers
+to visualize the trend, as shown in the line plots in Fig. 3. The
+results indicate that the estimated elasticity values at shallow
+layers are consistently more reliable than those at deeper layers.
+This finding suggests that properties at greater depths are more
+difficult to perceive, whereas shallower layers provide more
+reliable perceptual information. Comparing the curves under
+different external pressures in Fig. 3 reveals that higher pres-
+sures extend the range of accurate perception to greater depths.
+In addition, variations in elasticity reveal that softer materials
+exhibit higher sensitivity, indicating a larger perception range in
+soft objects compared to harder ones. Both increased external
+pressure and softer materials enhance depth perception, which
+is consistent with our real-life experiences. These observations
+allow us to provide a credibility measurement for the tactile
+elastography results. They also offer insights into the choice
+of design factors in tactile elastography, which will be further
+explored and discussed in Section IV-B.
+IV. EXPERIMENT RESULTS
+A. Results
+In this section, we evaluated our method of tactile elastog-
+raphy in simulated environments with the known ground-truth
+distribution of the material by applying pressures on sampling
+points (see details of sampling strategy in Section V-C).
+1) Setup: In the following experiments, we set the hyperpa-
+rameter kc = 1000 to ensure rigid attachment of the nodes at the
+bottom of the models. In addition, Young’s modulus of elements
+was constrained in the range [el, eu], where el = 0.001 MPa
+and eu = 100 MPa. For the experiment, the initial Young’s
+modulus is set to a uniform distribution of 0.2 MPa. The mesh
+was divided into tetrahedrons with their average edge length set
+to at most 10% of the diagonal length of its bounding box. We
+implemented and evaluated our method on a desktop running
+ubuntu18.04 with an Intel i7 − 11700U CPU 3.60 GHz. In our
+study, we used scipy.optimize package in Python to solve the
+minimization problem.
+2) Metrics: To assess the relative difference of the elas-
+ticity distributions e, we compute the structural similarity
+SSIM(ê, egt) [41], the normalized correlation as the met-
+ric s(ê, egt) =
+|(egt−ēgt)(ê−¯
+ê)|
+|(egt−ēgt)||(ê−¯
+ê)|
+, the peak signal-to-noise ratio
+PSNR(ê, egt) [42], and we also report the root mean square error
+RMSE(ê, egt) [43] where egt is the ground truth of the elasticity
+distribution. Normalized correlation is commonly used to assess
+the integrated similarity of the signals [8]. These metrics are
+representative assessment metrics in medical imaging quality
+assessment tasks [44], which are proven to have strong posi-
+tive correlations with subjective assessment scores. The higher
+SSIM, normalized correlation s and PSNR, and the lower value
+of RMSE indicate higher accuracy.
+3) Test Models: We constructed diverse models to test our
+approach, including two-material models and heterogeneous
+models of different geometries. For tests of two-material cases,
+we built cubic models, as well as cylindrical, hyperbolical,
+and hemispherical models, which represent typical second-order
+curved geometries, with inclusions of various shapes in Fig. 4.
+Note that we presented the test for distributed inclusion in
+Fig. 4(g). In Fig. 4(d), we design a cubic model embedded
+with a soft cone-shaped inclusion. Then, we experimented on
+three heterogeneous models, including heterogeneous cube and
+hemisphere models in Fig. 5. All the ground truths of the test
+models are displayed in the upper row of Figs. 4 and 5.
+4) Test Results: The accuracy metrics and elastography re-
+sults compared to corresponding ground truths are illustrated
+in Figs. 4 and 5. We found a strong correlation between the
+ground-truth map and the tactile elastography from the results
+shown in the figures. The statistics listed in Figs. 4 and 5 in
+terms of the SSIM, normalized correlation, PSNR, and RMSE,
+demonstrate similar levels of indicators in [45], [46]. Therefore,
+it can be seen that our method provided recovery and showed
+its agreement with the input map as well for objects’ elasticity
+with two material distributions or heterogeneous distributions.
+We then compared the computational cost of tactile elastogra-
+phy with existing medical imaging methods. Basic 2-D imaging
+using X-ray for a voxel size of 0.4 mm takes less than 15 min on
+central processing units (CPU: 2.13 GHz, RAM: 32 GB) [47],
+and the average computation time for converting 2-D to 3-D is
+around 3 min [48]. The calculation in USE for volume data
+within a 60 mm depth can be performed in parallel over a
+few seconds [49]. The computation time for 3-D MRE varies,
+ranging from a few seconds to several hours, depending on
+the quality requirements and the chosen method [50]. Notably,
+achieving real-time computation in milliseconds, as with 2-D
+ultrasound imaging, remains a challenge for current 3-D elas-
+tography techniques. The computation time of our optimization
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 07,2025 at 08:40:17 UTC from IEEE Xplore. Restrictions apply.
+3728 IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+Fig. 4. Elastography results for models with two material types. The upper row illustrates the ground truths, and the lower row displays the corresponding
+elastography results. (a) Cube with a hard two-tier cake-shaped inclusion. (b) Cube with a hard torus. (c) Cube with a hard cone. (d) Cube with a softer cone.
+(e) Cylinder with a hole and an inclusion. (f) Hyperboloid with an inclusion. (g) Hemisphere with distributed inclusions.
+Fig. 5. Elastography results for three models with heterogeneous materials.
+The upper row shows the ground truth material distributions, and the lower
+row presents the corresponding elastography results. (a) and (b) Heterogeneous
+cubes. (c) Heterogeneous hemisphere.
+TABLE I
+COMPUTATION COST
+problem primarily depended on the complexity of the geometry
+model and the material distribution. Here, we demonstrated the
+computation cost table in Table I for geometry models in Figs. 4
+and 5. We found that tactile elastography took less than 6 min
+Fig. 6. Cubic models with inclusions at different depths for studying design
+factors. (a) Model 1: Inclusion at a shallow layer. (b) Model 2: Inclusion at a
+deep layer.
+for models with about a thousand of nodes to produce a mean-
+ingful distribution without hardware acceleration. Similar to
+previous 3-D medical imaging methods, our approach achieved
+an acceptable computational cost for elastography. However,
+its feasibility for real-time applications remains limited by the
+higher computational complexity of the inverse FEM. Given the
+tradeoff between speed and resolution, tactile elastography is
+well-suited for tasks involving precomputation or low update
+frequency. Its accessibility and simplicity make it ideal for
+preliminary clinical diagnoses, such as detecting lesion tissue,
+enabling easy self-examinations, and facilitating remote palpa-
+tion. Furthermore, as discussed in Section VII, it holds potential
+for acceleration in real-time applications.
+B. Design Factors
+In this section, we experimented with different design factors
+in tactile elastography to justify their influence on the quality
+of the results. In this experiment, we chose two unit cubes with
+two spherical hard inclusions in different depths as shown in
+Figs. 6 and 7(a). Then, we tested our method with different
+experimental settings to indicate how deep the press should be,
+how many sampled frames we need, and whether pressing along
+multiple directions was significant in tactile elastography with
+the experimental results shown in Fig. 7. We also adjusted the
+range of the color map to better visualize the scalar map for
+different comparisons.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 07,2025 at 08:40:17 UTC from IEEE Xplore. Restrictions apply.
+XIANG et al.: TACTILE ELASTOGRAPHY 3729
+TABLE II
+ACCURACY METRICS FOR DIFFERENT SITUATIONS
+Fig. 7. Elastography results for the simulated models shown. The upper row
+illustrates the images for Model 1, and the lower row illustrates the images
+for Model 2. (a) Ground truth. (b) Results for varying external pressure ranges.
+(c) Results for different sampling resolutions. (d) Results for varying the number
+of sampling directions. (e) Results with noisy inputs.
+1) Range of External Pressure: First, we experimented to
+find how the quality of tactile elastography varies with re-
+spect to the magnitude of each pressing test. As a deep press
+of an object could be quantified as the overall magnitude of
+the pressing force, we would take the range of external pres-
+sure as the design factor in this experiment. As analyzed in
+Section III-D, the features deep inside the object were less
+sensitive to tactile elastography. We expected the larger external
+pressure would better reveal the material distribution in the deep
+regions. Therefore, We tested the tactile elastography with four
+levels of the maximum pressure pmax ranging from 5 kPa to
+20 kPa with a step size r = 5 kPa, exerted from one direction
+on the object. The experimental results were summarized in
+Fig.7(b).Wealsoevaluatedthesimilarityscoresoftherecovered
+elastography to the ground truth and listed them in Table II.
+Fig. 8. Similarity of elastography results at varying depths where the hard
+inclusions are located under different conditions. The upper row shows trends
+for varying maximum external pressures, while the lower row illustrates trends
+for different external pressure resolutions. (a) Trends correspond to Model 1.
+(b) Trends correspond to Model 2.
+As displayed in Fig. 7(b), we observed that applying larger
+external pressures could bring a more sensitive perception of
+deeper layers in objects. To further investigate the reconstruction
+capability influenced by the range of external pressures from
+the shallow area to the deep region in the specific model, we
+computed the credibility value for each layer to its ground truth
+from the top to the bottom and plotted in the upper row of Fig. 8.
+We found increasing sampling times by utilizing a larger range
+of external pressure with a constant resolution brings a deeper
+perception along the sampling direction, which is according to
+our perspective in Section III-D. However, simply increasing
+the range of p does not have a significant effect on tactile
+elastography except for expanding perceiving depth.
+On the one hand, with the same number of sampling frames,
+a high pmax would lead to a large sampling gap between the
+frames and the details of the distribution would be lost with a low
+sampling resolution in the pressing. On the other hand, because
+we could not apply an extremely large pressure on the object for
+safety, the pressure that we actively exerted in the experiment
+still had an upper bound, which also limited the perception depth
+along a certain direction.
+2) Sampling Resolution: Now, we experimented with our
+method with different sampling resolutions. As the spatial res-
+olution was determined by the vision-based tactile sensor, here
+we referred to the sampling resolution as the number of temporal
+samples during the pressing process. We would check how
+the quality of the proposed tactile elastography would update
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 07,2025 at 08:40:17 UTC from IEEE Xplore. Restrictions apply.
+3730 IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+with more sampling frames sent to the computational pipeline.
+Therefore, we kept the same pressure range with its upper
+bound 20 kPa, and the pressing direction was set along the
+z-axis. As for the control variable, we took the sampling times
+t ∈ {1, 2, 4, 8}. We provided the tactile elastography in Fig. 7(c)
+and accompanied the statistics in Table II as well.
+From the experimental results, an increasing trend of the
+quality was found with the higher sampling resolution. Higher
+sampling resolution brings more observable data in a certain
+perceiving depth owing to the range limitation of the force.
+As a result, we found in the layers of elasticity maps that with
+the increase of the sampling resolution, a finer perception was
+obtained under a certain depth. The elastography was better
+improved at shallow layers when the sampling resolution in-
+creased and the improvement was not that observable for deep
+layers. This matched with our discussion in the last experiment,
+as the upper bound of the external force was limited and its
+influence was nonnegligible. Then, we inspected the similarity
+scores for each layer to its ground truth from the top to the
+bottom and plotted them in the lower row of Fig. 8. Although
+the improvements of the whole distribution are limited, we found
+a notable increase of the similarity score in the abnormal area
+with a higher resolution of pressure in a certain range applied in
+the test.
+3) Pressing Directions: As discussed above, shallower lay-
+ers in pressing directions were perceived better, and deeper
+layers were hard to reconstruct clearly due to the upper bound
+of forces. We, therefore, assumed that more pressing direc-
+tions from different sides would help improve the perceptual
+capability of material distribution deep inside the object. In
+our experimental design, we adhered to a consistent resolution
+for presses while gradually augmenting the number of pressing
+directions.
+We present the elastography results with additional pressing
+trials along more directions from the sides, as shown in Fig. 7(d).
+Through the examination of both the elastography results and
+the similarity metrics, more pressing directions contributed to
+improving the quality of the results. As the deep regions with
+respect to one pressing direction would be better observable
+in another direction, more information with high credibility in
+space was obtained with more pressing directions.
+C. Noisy Inputs
+So far, we assumed the input tactile signals and geometry of
+the target object were precisely measured for the experiments.
+In this section, we would test tactile elastography under varying
+levels of noise in the tactile images and the shape measurements.
+1) Noisy Tactile Signals: To assess the impact of noisy tactile
+measurements, we introduced Gaussian noise into the tactile
+signals before we sent them for tactile elastography. We applied
+noises of two different levels to the sampling processes. The
+signal-to-noise ratios (SNR) were set to 20 dB and 10 dB, re-
+spectively, which were sufficiently high to cover the signal errors
+for typical vision-based tactile sensors [51]. The experimental
+results on the two tested objects were presented in Fig. 7(e).
+As the observation noise of the tactile signals increased, the
+quality of the estimated elasticity distribution decreased. Despite
+Fig. 9. Elasticity distribution results with shape estimation errors. The geo-
+metric models are resized from 80% to 120% along different axes.
+this, the abnormal area corresponding to the inclusion could be
+recognized as well. As we proposed to use physics to extract the
+elastography,thedominantinteriorpropertiesinobjectscouldbe
+recovered as long as the main characteristics in the map between
+the deformation and external force remained perceivable.
+2) Imperfect Geometric Measurements: Here, we experi-
+mented with our method using input models with imprecise
+geometric measurement. Typically, we asked for a well-captured
+rest shape of the target object for estimating the deformation
+field. Although the shape could be obtained using visual or
+tactile solutions, the reconstruction errors always existed and,
+therefore, may affect the quality of elastography. We tested our
+method to check the elastography when the shapes of the objects
+were measured to be larger or smaller due to the imperfect shape
+reconstruction. The rest shapes of the cubes were artificially
+enlarged or shrunk to 120% or 80% in an isotropic or anisotropic
+way, similar to [8]. We took these mismatched shapes for esti-
+mating the deformation with system errors and then produced
+the tactile elastography, as shown in Fig. 9.
+From the results, we found that the interior distribution of
+elasticity was similar to the ground truth up to a certain scale.
+Under the same pressing operation, achieving the same nodal
+positions on a deformed surface required greater compression
+for materials with larger thickness in the pressing direction,
+resulting in a reduction of the stiffness in perception. Conse-
+quently, if the geometry model of the object was enlarged, the
+overall elasticity appeared softer. Conversely, if the geometry
+model was shrunk, the overall elasticity appeared stiffer as
+demonstrated in Fig. 9. We might still observe the suspicious
+region, which corresponded to the inclusion inside the object,
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 07,2025 at 08:40:17 UTC from IEEE Xplore. Restrictions apply.
+XIANG et al.: TACTILE ELASTOGRAPHY 3731
+Fig. 10. Box plots of depth estimation results.
+while its shape was also stretched due to the imprecise shape
+measurement of the tested object. Therefore, as long as the
+errors in the geometric measurements were predictable, users
+could read the elastography to estimate its interior material
+distribution.
+V. APPLICATIONS AND EXTENSIONS
+A. Depth Estimation
+From the above results, we qualitatively and quantitatively
+evaluated the results of tactile elastography. Other than visually
+providing the interior stiffness information, we showed two
+applications to demonstrate the benefits of the rich information
+provided by tactile elastography. Specifically, we have checked
+the advantages of tactile elastography as the features for locating
+or recognizing hard inclusions inside soft materials.
+Locating hard inclusions inside soft tissue from haptic cues
+has been studied in the literature, where the key challenge is
+to estimate the depth of the hard inclusions [52]. We hypothe-
+size that the tactile elastography extracted using physics-based
+models will give abundant spatial information for this depth
+estimation task. Specifically, in this study, we embedded a
+spherical inclusion (stiffness: 30 MPa, radius: 2 mm) inside
+a soft cube model (stiffness: 4 MPa, side length: 1 cm) with
+random positions. Seven models of different depth levels were
+experimented in this study, where the depth of the inclusion was
+set as d = 2, 3, . . ., 8 mm. We randomly positioned the inclusion
+inside the tissue to generate the samples at each depth. We
+used tactile elastography to generate the stiffness map, took the
+centroid for inclusion after thresholding the stiffness, and quan-
+tified its z-coordinate to classify its depth into seven groups. The
+estimated depths for the random samples were plotted in Fig. 10
+using box plots. It visualized the consistency of depth estimation
+across different layers, highlighting both the central tendency.
+The average accuracy for the depth estimation of hard inclusions
+was 95% using our method. Compared to the learning-based
+method with the average accuracy 95.8% for four classes (0, 5,
+8, 10 mm) in [6], our method achieved comparable accuracy for
+classifying seven groups of depth levels (d = 2, 3, . . ., 8 mm).
+Note that generally, it is challenging to maintain accuracy when
+there are more groups in the classification problem. Moreover,
+the learning-based method relies on many reliable training sam-
+ples while our method does not require collecting the samples
+with well-labeled depth. We also note that our method is capable
+of continuously estimating the location of the inclusion (the
+average error of the depth estimation was around 2.14% ), while
+Fig. 11. Matrices from the inclusion recognition experiment. (a) Similarity
+matrix between the test models. (b) Confusion matrix from the human-based
+recognition experiment. (c) Confusion matrix from the elastography-based
+recognition experiment.
+conventional classification solutions just classify the depth into
+a small number of groups.
+B. Recognition
+In palpation works, inclusion recognition is a difficult task
+due to the complexity of the shape of inclusions. The minor
+differences in the haptic cues are hard to perceive. We will show
+that tactile elastography could be applied to this task. By taking
+the tactile signals, the reconstructed stiffness map will work
+as a good feature for inclusion recognition. For this study, we
+experimented with three objects with different shapes of hard
+inclusions as mentioned in Fig. 4(a), (b), and (c). The recon-
+structed elasticity maps shown in the lower row of the Fig. 4(a),
+(b), and (c) and (e), (f), and (g) were visually distinguishable
+and showed the potential of tactile elastography in inclusion
+recognition. We further inspected the similarity metrics between
+the ground truth map of these objects. By comparing the SSIM
+of the 3-D scalar fields listed in Fig. 11(a), we found it is already
+very hard to distinguish the ground truth of stiffness maps. For
+example, the SSIM between the ground truth maps in Fig. 4(a)
+and (c) reached 0.55. We examined the inclusion recognition
+task with manual palpation tests. We fabricated the above three
+objects (detailed in Section VI-A) and then invited ten volunteers
+to press them and classify the shapes of their inclusions into
+a two-tier cake [see Fig. 4(a)], a torus [see Fig. 4(b)], or a
+cone [see Fig. 4(c)]. We drew the confusion matrix from human
+recognition in Fig. 11(b). The correctness ratio of the manual
+classification was around 36.7%, which was close to random
+selection. While it was difficult to manually recognize the shapes
+of inclusions only from tactile interaction, tactile elastography
+showed the advantages of machine intelligence to identify the
+subtle differences of the tactile signals. For comparison, we
+trained a fully convolutional network (FCN) [53], with 64
+channels in the hidden layer. The input was Young’s modulus
+distribution (e), to recognize elastography results. The model
+was trained using cross-entropy loss and optimized with the
+Adam optimizer. In total, we collected 150 elasticity distribution
+signals, corresponding to different inclusion shapes. We selected
+120 signals as the training set, reserving the remaining 30 sets
+for testing. In Fig. 11(c), we present the confusion matrix for the
+elastography results corresponding to three different inclusion
+shapes [shown in Fig. 4(a), (b), and (c)]. The classification accu-
+racy of the elastography results was 90%, which outperformed
+the manual recognition performance.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 07,2025 at 08:40:17 UTC from IEEE Xplore. Restrictions apply.
+3732 IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+C. Sampling Strategy
+In tactile elastography tasks involving novel objects, auto-
+matically determining optimal sampling points on the surface
+to comprehensively reconstruct the interior distribution is chal-
+lenging. Therefore, a systematic sampling strategy is crucial for
+improving efficiency and generalizability in such applications.
+To address this, we employ a Bayesian-based approach [54] for
+selecting sampling points on the tactile surface. The goal is to
+iteratively identify optimal pressing locations that enhance the
+estimation of material properties while minimizing unnecessary
+actions [55], [56].
+Initially, we define a prior material distribution, typically
+modeled as a Gaussian distribution p(e) ∼ N(e∗
+, Σ∗
+), where e∗
+represents the initialization of Young’s modulus and Σ∗
+is the co-
+variance matrix that encodes the uncertainty in the prior knowl-
+edge. At each pressing point, the robotic arm, equipped with
+a tactile sensor, presses the material and samples the response
+sequence for t times, yielding the estimated Young’s modulus
+eobs and an associated credibility vector cobs with Algorithm 1.
+After acquiring a new observation, the posterior distribution at
+the (i + 1)th update of the material properties is updated using
+Bayes’ theorem. The (i + 1)th updated distribution combines
+the (i)th updated distribution and the new observation to provide
+a more accurate estimate of the material properties. Assuming a
+Gaussian distribution, the posterior mean e(i+1) and covariance
+Σ(i+1) at the (i + 1)th update are updated as follows:
+Σ−1
+(i+1) = Σ−1
+(i) + R−1
+(16)
+e(i+1) = Σ(i+1)(Σ−1
+(i)e(i) + R−1
+eobs) (17)
+where the matrix R is a diagonal matrix with the inverse credi-
+bility measurements as its diagonal elements. After updating the
+posterior distribution, multiple new sampling points are gener-
+ated. The next pressing point pnext is determined by projecting
+onto the area with the maximum uncertainty. After sufficient
+iterations, an elasticity distribution could be reconstructed. This
+approach ensures that regions with the highest uncertainty in
+the estimated distribution are prioritized for pressing, thereby
+enhancing the efficiency of the robot-assisted sampling process.
+To demonstrate the effectiveness of our sampling strategy
+across diverse scenarios, we evaluated it using a hemispherical
+model and a toy-like model with two distributed inclusions
+as shown in Fig. 12. Two center points with high uncertainty
+were identified and included in the subsequent optimization
+step during each update. As the sampling points were updated,
+more detailed information about the elasticity distributions was
+revealed. These results validated the capability of our sampling
+strategy to effectively capture the distributed inclusions.
+VI. ROBOT-ASSISTED TACTILE ELASTOGRAPHY
+A. Apparatus
+In real-world scenarios, we built a custom data collection
+apparatus using a 7-DoF Franka Emika Panda robot manip-
+ulator to execute the robot-assisted experiments as displayed
+in Fig. 13(a). To facilitate tactile sensing and interaction, we
+Fig. 12. Sampling demonstrations and updated elastography results based on
+the proposed sampling strategy. (a) Hemispherical model with two inclusions.
+(b) Toy-like model with two inclusions.
+Fig. 13. Data processing in the robot-assisted experiment. (a) Robot manipu-
+lator moves the tactile sensor, positioning the object beneath the tactile surface.
+(b) Sampled tactile signals are transformed into the observed displacement
+and external force on the target object, using the global pose tracked by the
+manipulator.
+employed a vision-based tactile sensor (Finger, Conarobot),
+which is a local implementation of Gelsight-like sensors, as the
+input device mounted as the end-effector. A total of 145 markers
+were strategically positioned within the tactile sensor’s sensing
+area to detect contact force and deformation. The sensor ran at
+a frequency of 30 Hz, which was sufficient for the sampling
+requirements in our experiments.
+We used three physical models to test the robot-assisted tactile
+elastography, including a phantom with a hard inclusion, a phan-
+tom with a spherical hole, and a real human hand with unknown
+geometry, as shown in Fig. 14. To build the model in Fig. 14(a)
+and (c), we utilized the inverted molding technique to place a
+hard inclusion with a diameter of 4 mm into a cubic silicone
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 07,2025 at 08:40:17 UTC from IEEE Xplore. Restrictions apply.
+XIANG et al.: TACTILE ELASTOGRAPHY 3733
+Fig. 14. Models used in the real-world experiment. (a) Soft cube model with
+a hard spherical inclusion. (b) Soft cube model with a hole. (c) Human hand.
+model. In addition, we plucked out the spherical inclusion to
+get a hole at the corner of the model illustrated in Fig. 14(b).
+The silicone used in the model had a Young’s modulus of
+approximately 0.2 MPa, which allowed for realistic deformation
+under applied pressure. The inclusion had a higher Young’s
+modulus of approximately 2.5 GPa, providing a clear contrast
+in mechanical properties for the elastography measurements. To
+prevent the sticky surface of the phantoms from affecting the
+interactions, we coated the surface with a dry fine powder.
+To ensure that the contact area fell entirely within the sensing
+region, we placed the phantom on the platform beneath the
+tactile sensor. We made the tactile sensor press target objects
+along the z-axis in the global coordinate system. We also rotated
+the phantom to have its different sides facing the tactile sensor
+to sample the tactile signals along the x- or y-direction. By
+monitoring the force applied to the phantom’s surface through
+the tactile sensor, we could maintain the applied force within
+the desired range. In our experiment, we restrict the pressing
+pressure to be smaller than 0.04 MPa for a deep but safe contact.
+For the elastography of the hand, we kept the hand statically
+placed under the tactile sensor. As the hand was larger than the
+soft layer of the sensor, we only sampled the tactile signals from
+a vertical pressing test and solved for the elastography at the
+region beneath the contact surface.
+B. Data Processing
+For robot-assisted tactile elastography, we need to prepare
+the inputs to our computational pipeline shown in Fig. 2. We
+reconstruct the 3-D deformation field utilizing the vision-based
+tactile sensor. We adopt a calibration method for the color field
+similar to the approach used in Gelsight structure sensors [57],
+[58]. To obtain the data for color-to-gradient mapping, we press
+a calibration ball with a known radius (6 mm in our case) on
+the sensor. In addition, we press a hexagonal part on the sensor
+to determine the number of pixels per millimeter. For tracking
+the deformation and force distributions, we process the marker
+points by interpolating pixels around them, following [57]. This
+allows us to analyze the marker points’ variation and capture the
+sensor surface’s deformation.
+With the known configuration of the device, we could extract
+the end-effector transformation Ps consisted of the translation
+Ts ∈ R3
+and orientation Rs ∈ R3×3
+from the local coordinate
+systemdefinedonthesensorsurfacetothelocalcoordinateofthe
+target object. In addition, the transformation was reduced to d
+whenthetactilesensormovedalongaxeswithoutanyrotation.In
+this case, we converted the force and deformation field captured
+by the tactile sensor to the contact force and deformation of
+the target object by applying Ps to xs and fs. Because the
+nodal positions at the rest mesh of the target object might not
+match with the markers tagged on the sensor, we interpolated for
+the displacement and force on the vertices of the object. With
+these inputs, we were ready to apply Algorithm 1 to find the
+elastography.
+In practice, the shape of the soft layer on the tactile sensor did
+not conform to the contact surface of the target object. Therefore,
+at the beginning of the contact, only a portion of nodal tactile
+information on the object’s surface was observable. In this case,
+if a vertex q on the object was not in contact with the sensor at
+the ith sample, we set the corresponding external force f
+(i)
+o (q)
+to zero and its deformation u
+(i)
+o was set according to the global
+transformation of the sensor. Essentially, we formed a virtual
+cubic region to encapsulate the target object as highlighted in
+Fig. 14(c) and the empty part would theoretically correspond to
+infinitesimal stiffness on the elastography because of the lower
+bound constraint el defined in the optimization.
+C. Results
+In this study, we selected ultrasound imaging as a reference
+due to its cost-effectiveness and accessibility, which facilitates
+obtaining information about internal material distributions. We
+presented the reconstruction results and compared the quanti-
+tative evaluation metrics with those of ultrasound images for
+two models as depicted in Fig. 15(a) and (b). We sliced our
+elasticity map and linearly adjusted the colormap to a gray scale
+to better compare it with the corresponding ultrasound images.
+We found that both the hard inclusion and the spherical hole
+inside the soft cube phantom could be approximately revealed
+by the imaging in Fig. 15(a) and (b). The stiffness of the
+voxels corresponding to the hole converged to the lower bound
+defined in the optimization problem. The ultrasound images in
+Fig. 15(a) and (b) show artifacts due to the shadowing effect and
+the posterior enhancement caused by the abnormal area. The
+metrics in Fig. 15(a) and (b) indicate that our results provide
+a 3-D distribution of the target object and achieve a relatively
+higher level of similarity to the ground truths compared to the
+ultrasound images, potentially enhancing further recognition
+tasks. Note that in practical experiments, the silicone replicas
+might exhibit an elasticity distribution that did not perfectly
+match the designed model due to manufacturing imperfections.
+This variability introduced extra discrepancies between the ex-
+perimental results and the designed model.
+The extension of our method to objects with unknown rest
+shapes was a challenging problem in our formulation. Although
+accurately determining the model is crucial for the global re-
+construction, it may be potential to apply a simplified model to
+estimate the local perception roughly, as the region of interest of
+ultrasound imaging. Given no more prior knowledge about the
+human hand, we assumed the region of interest of the human
+hand was a cubic area below the contact surface and follows
+the Neo-Hookean model with a Poisson ratio 0.45 [59]. For
+reference, the Young’s modulus of the skin, adipose tissue,
+muscle, and cartilage in prior work are approximately in the
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 07,2025 at 08:40:17 UTC from IEEE Xplore. Restrictions apply.
+3734 IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+Fig. 15. Elastography results and ultrasound images of the real-world experiment. (a) and (b) Results correspond to models in Fig. 14(a) and (b). (c) Results
+correspond to the model in Fig. 14(c).
+range of 8−700 kPa, 0.5−5.6 kPa, 100−400 kPa [64], and
+0.5−4.55 MPa [65], respectively. While it was not trivial to
+find the interior material distribution of the hand, we opted to
+scan ultrasound images around a similar region as the reference
+for comparing our elastography results in Fig. 15(c). From the
+results, we observed that similar structures were highlighted
+as the red dashed curves in the slices of images, indicating
+the regions separating the bones and soft tissues. Nevertheless,
+restricted by the mismatches of geometry, we also found the
+scalar field in a few slices showed discrepancy at the shallow
+depth, as highlighted in the blue box in Fig. 15(c). In addition, we
+acknowledge that image registration across different modalities
+remains a challenging and unresolved issue in medical image
+processing. The ultrasound image of the human hand shown
+in Fig. 15(c) exhibits acoustic shadowing due to high-density
+areas. Given the absence of ground truth for the human hand, it
+is not suitable to quantitatively compare our results with these
+ultrasound images for assessments. Therefore, the ultrasound
+images in Fig. 15(c) are primarily used as indicative references.
+Overall, our results demonstrate that tactile elastography aligns
+well with the key structures identified in the ultrasound images
+during our tests.
+VII. DISCUSSION AND LIMITATIONS
+A. Medical Elastography Methods
+By considering the observed tactile information from elas-
+ticity models, we have demonstrated the potential of tactile
+elastography to reveal hidden material distribution. Classic med-
+ical elastography methods, which utilize ultrasound, magnetic
+resonance, or optical stimulation, inspect returned signals and
+build models to explain the imaging results. In contrast, the
+proposed tactile elastography directly exploits the force and
+deformation on the contact surface. While existing MI solutions
+also attempt to generate images from haptic data, they are limited
+by the low-dimensional haptic signals from force sensors. Con-
+sequently, the semiheuristic images produced rely on numerous
+strong assumptions, which likely lead to overfitting to specific
+organs [22], [23], [25]. Thanks to the advanced tactile sensors,
+robot control, and computational resources, we strive for a more
+general imaging method to estimate the continuous elasticity
+map.
+Commonly, elastography generates medical images where
+each pixel value is related to the elasticity of the corresponding
+point. As long as the image produces a meaningful scalar field to
+facilitate the assessment of the interior material distribution, the
+elastography will be acceptable in practice. For example, despite
+the pixels produced by ultrasound elastography are generally
+noisy and blurry, physicians still use it for diagnosis. In this
+work, we model the pixel values as Young’s Modulus to indicate
+the hardness level of the point. Due to the nonlinearity of the
+simplified physical model and the sensory noise, the optimized
+image also exhibits noisy outputs, compared to the current tech-
+niques such as MRE or OCE. Yet, we still find the results with
+the color-coded hardness value display meaningful structures
+inside the object. In practice, users can adjust the color scale
+to enhance the visibility of patterns in tactile elastography. This
+is similar to the practical use of ultrasound imaging, in which
+physicians also frequently adjust the gains to better visualize
+the image [60]. Unlike most current medical imaging devices,
+vision-based tactile sensors offer advantages for tactile elastog-
+raphy, including low cost, easy accessibility, and operational
+simplicity. Another valuable finding is that interior patterns can
+be detected solely from partially observable haptic signals on
+the boundary surface. That aligns with human perception of soft
+objects, providing a more intuitive approach to assessing mate-
+rial hardness while eliminating the need for additional feature
+alignment often required in other imaging modalities. Moreover,
+the direct 3-D elasticity reconstruction sets our method apart
+from traditional 2-D imaging techniques. In addition, we also
+provide credibility measurements to help quantify the reliability
+oftheelastographyresults.Webelievethattactileelastographyis
+a plausible solution for inferring invisible material distributions
+from subtle tactile signals through multiple pressing trials.
+B. Inverse Physics Formulation
+In this work, we employ inverse FEM to infer the distribution
+of Young’s modulus as the elastography, which is one index
+to reflect the hardness of each point in the object. Other me-
+chanical properties, such as Poisson’s ratio or shear modulus,
+also encode the material features. We choose to use Young’s
+modulus because it is sensitive to the perceived tactile signals
+from pressing operations. We note that Poisson’s ratio is cou-
+pled with Young’s modulus in many material models. Young’s
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 07,2025 at 08:40:17 UTC from IEEE Xplore. Restrictions apply.
+XIANG et al.: TACTILE ELASTOGRAPHY 3735
+modulus will not be perfectly solved if the default Poisson’s
+ratio deviates from its ground truth. In applications involving
+different objects, particularly human tissues, selecting the ap-
+propriate Poisson’s ratio, which varies across body parts, poses
+a challenge for real-world deployment due to a lack of accurate
+material knowledge. Furthermore, for complex soft materials,
+the hyperelastic model may work ineffectively, which remains
+an open issue. However, we also note that we do not need
+to perfectly reconstruct the real Young’s modulus in general
+scenarios[61].Aselastographydoesnotdemandastrictphysical
+interpretation of the scalar field, an approximate map of relative
+Young’s modulus is sufficient for our purposes.
+We also observe that tactile signal updates depend on both the
+material of the tactile sensor and the target object. Vision-based
+tactile sensors primarily capture the deformation of the soft
+layer. If the target object is too soft, the deformation of the soft
+layer is minimal and difficult to track visually. Conversely, if
+the target object is too hard, the internal material’s effect on
+the surface deformation is negligible. In such cases, elastog-
+raphy can only reliably detect material properties at shallow
+depths. In our experiments, a soft layer with Young’s modulus
+of 0.12 MPa works well for objects with Young’s moduli ranging
+from 0.001 MPa to 4 MPa. Customizing the tactile sensor could
+enhance its sensitivity to objects with different hardness levels.
+In addition, the shape and size of the sensor are crucial for
+accurate tactile elastography. Our practical knowledge shows
+that a convex surface improves deformation capture by ensuring
+better contact [62]. The sensor size should match the object’s
+dimensions. A sensor too small will gather insufficient data,
+limiting accuracy, while one too large may reduce resolution,
+increase noise, and complicate task execution. Larger sensors
+may also compromise maneuverability and precision in robotic
+applications. For perceiving objects of hand size, a sensor with a
+1.5 cm radius may offer a balance between efficient data capture
+and resolution.
+Postmanufacturing inconsistencies in the silicone overlay
+used for tactile sensors can introduce errors when applying
+the theoretical model to real-world scenarios. To address this,
+we recommend calibrating the sensor by measuring its geom-
+etry and material properties before use [63], [66]. Calibration
+can be performed using inverse finite element modeling based
+on a hyperelastic model. Once calibrated, the tactile sensor’s
+deformation and force data can be integrated into our solver.
+While precise calibration remains challenging for vision-based
+tactile sensors [67], we found that such discrepancies do not
+significantly affect the core functionality of our approach. Since
+the focus is on capturing general material distribution character-
+istics rather than exact matches, our method remains effective in
+generating useful results. These distributions are valuable for
+guiding both robotic and human-assisted operations, as they
+adequately represent key material properties despite calibration
+inconsistencies.
+The results still have room for improvement in terms of
+accuracy since we lack prior knowledge and a better initial-
+ization strategy. In our current implementation, we use a uni-
+form distribution with a small Young’s modulus value as the
+initialization. This choice may lead to results that are smaller
+than the ground truth if the convergence is insufficient. If we
+have more prior information about the target object, we can
+better initialize the stiffness distribution, which helps solve
+the nonlinear optimization problem. In addition, we may add
+regularization terms to further guide the optimization with other
+prior information. For instance, if we know the hardness levels
+of the inclusion and the tissue are close to ec and et, we may
+add a regularization term (e − ec)2
+(e − et)2
+to prefer a binary
+map of ec and et. Furthermore, we may add an L1 norm on the
+elasticitymaptoencourageasmoothfieldexcept at theboundary
+of the inclusion. To generalize the method to a broader range of
+problems, we assume no prior knowledge here. What is more,
+assigning adaptive weights to deal with the tactile data in (7)
+could bring an improvement in the results as well.
+As a limitation of the inverse physics formulation, the com-
+putation cost is high because the nonlinear FEM model does not
+have a closed solution. In this work, we use the Neo-Hookean
+model because it is more suitable for capturing the general
+deformation of the soft tissue, whereas linear material models
+are only effective for subtle deformation. As a first step in
+extracting elastography from tactile signals, we anticipate future
+work to reduce the computation cost by introducing a dedi-
+cated initialization scheme with the Monte Carlo method. More
+engineering steps such as the adoption of advanced numerical
+solvers, parallel computation, and more powerful computation
+hardware can further reduce the computation time. Moreover,
+formulating data-driven surrogate models is another option to
+solve the inverse problem. However, data-driven approaches are
+at the cost of preparing high-quality training data. We expect
+further studies to explore learning-based methods for improving
+tactile elastography, while the proposed physics-based model
+could serve as an appropriate baseline for potential future work.
+VIII. CONCLUSION
+We work on the challenging problem of imaging the interior
+material distribution under the skin of the object. By exploiting
+the tactile information from active contact trials, we introduce
+an inverse physics model to solve for the 3-D elasticity distri-
+bution. Compared with the 2-D tactile images sampled on the
+surface, tactile elastography provides a more intuitive approach
+for operators to understand the interior material distribution of
+objects. In the experiments, we discuss the credibility of varying
+elasticities at varying depths under different external forces and
+observe the influence of different sampling data. We also show
+the applications of tactile elastography in depth estimation and
+shape recognition of invisible hard inclusions. Furthermore, we
+showcase the capability of robot-assisted tactile elastography in
+imaging the interior materials of real-world objects using tactile
+cues.
+In this work, we use a 7-DoF robot manipulator to actuate and
+locate the tactile sensor. This setup constrains the workspace of
+the tactile sensor. To produce elastography on larger models
+with complex shapes, a larger workspace for more flexible and
+intelligent active contact operations is required. For future work,
+a motion capture system could be employed to track the global
+motion of the tactile sensor, enabling the perception of objects
+from varying directions with a hand-held sampling strategy. It
+is also interesting to explore more advanced pressing policies to
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 07,2025 at 08:40:17 UTC from IEEE Xplore. Restrictions apply.
+3736 IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+safely sample the haptic information for tactile elastography. As
+the deployment of tactile sensors grows, there is significant po-
+tential to adopt tactile elastography as the offline precomputation
+stage in robotic manipulation tasks involving soft objects, such
+as precise grasping and shaping. In addition, we anticipate fur-
+ther exploration of tactile elastography’s medical applications,
+particularly in remote palpation diagnostics.
+ACKNOWLEDGMENT
+The authors would like to thank the IEC for the ethical
+approval provided for Clinical Research of Zhongda Hospital,
+Affiliated to Southeast University.
+REFERENCES
+[1] Y. Wang, C. Nguyen, R. Srikanchana, Z. Geng, and M. T. Freedman,
+“Tactile mapping of palpable abnormalities for breast cancer diagnosis,”
+in Proc. IEEE Int. Conf. Robot. Automat., 1999, vol. 2, pp. 1305–1309.
+[2] P. S. Wellman, E. P. Dalton, D. Krag, K. A. Kern, and R. D. Howe, “Tactile
+imaging of breast masses: First clinical report,” Arch. Surg., vol. 136, no. 2,
+pp. 204–208, 2001.
+[3] L. Han, A. Noble, and M. Burcher, “The elastic reconstruction of soft
+tissues,” in Proc. IEEE Int. Symp. Biomed. Imag., 2002, pp. 1035–1038.
+[4] K. Sangpradit, H. Liu, P. Dasgupta, K. Althoefer, and L. D. Seneviratne,
+“Finite-element modeling of soft tissue rolling indentation,” IEEE Trans.
+Biomed. Eng., vol. 58, no. 12, pp. 3319–3327, Dec. 2011.
+[5] B. Ahn, Y. Kim, C. K. Oh, and J. Kim, “Robotic palpation and mechanical
+propertycharacterizationforabnormaltissuelocalization,”Med.Biol.Eng.
+Comput., vol. 50, pp. 961–971, 2012.
+[6] B. Xiao et al., “Depth estimation of hard inclusions in soft tissue by
+autonomous robotic palpation using deep recurrent neural network,” IEEE
+Trans. Automat. Sci. Eng., vol. 17, no. 4, pp. 1791–1799, Oct. 2020.
+[7] A. Davis, K. L. Bouman, J. G. Chen, M. Rubinstein, F. Durand, and W. T.
+Freeman, “Visual vibrometry: Estimating material properties from small
+motion in video,” in Proc. IEEE Conf. Comput. Vis. Pattern Recognit.,
+2015, pp. 5335–5343.
+[8] B. T. Feng, A. C. Ogren, C. Daraio, and K. L. Bouman, “Visual vibra-
+tion tomography: Estimating interior material properties from monocular
+video,” in Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit., 2022,
+pp. 16210–16219.
+[9] T.R.NelsonandD.H.Pretorius,“Three-dimensionalultrasoundimaging,”
+Ultrasound Med. Biol., vol. 24, no. 9, pp. 1243–1270, 1998.
+[10] H. Maekawa, K. Tanie, K. Komoriya, M. Kaneko, C. Horiguchi, and
+T. Sugawara, “Development of a finger-shaped tactile sensor and its
+evaluation by active touch,” in Proc. IEEE Int. Conf. Robot. Automat.,
+1992, pp. 1327–1334.
+[11] C. Chi, X. Sun, N. Xue, T. Li, and C. Liu, “Recent progress in technologies
+for tactile sensors,” Sensors, vol. 18, no. 4, 2018, Art. no. 948.
+[12] S. Zhang et al., “Hardware technology of vision-based tactile sensor: A
+review,” IEEE Sensors J., vol. 22, no. 22, pp. 21410–21427, Nov. 2022.
+[13] J. Ophir et al., “Elastography: Imaging the elastic properties of soft tissues
+with ultrasound,” J. Med. Ultrasonics, vol. 29, pp. 155–171, 2002.
+[14] Z. Guo, S. You, X. Wan, and N. Bićanić, “A FEM-based direct method
+for material reconstruction inverse problem in soft tissue elastography,”
+Comput. Structures, vol. 88, no. 23, pp. 1459–1468, 2010.
+[15] J.-L. Gennisson, T. Deffieux, M. Fink, and M. Tanter, “Ultrasound elastog-
+raphy: Principles and techniques,” Diagn. Interventional Imag., vol. 94,
+no. 5, pp. 487–495, 2013.
+[16] R. B. Buxton, Introduction to Functional Magnetic Resonance Imaging:
+Principles and Techniques. Cambridge, U.K.: Cambridge Univ. Press,
+2009.
+[17] Y. K. Mariappan, K. J. Glaser, and R. L. Ehman, “Magnetic resonance
+elastography: A review,” Clin. Anatomy, vol. 23, no. 5, pp. 497–511, 2010.
+[18] D. Huang et al., “Optical coherence tomography,” Science, vol. 254,
+no. 5035, pp. 1178–1181, 1991.
+[19] J. Ophir et al., “Elastography: Ultrasonic estimation and imaging of the
+elastic properties of tissues,” Proc. Inst. Mech. Engineers, Part H: J. Eng.
+Med., vol. 213, no. 3, pp. 203–233, 1999.
+[20] R.A.Leitgeb,R.M.Werkmeister,C.Blatter,andL.Schmetterer,“Doppler
+optical coherence tomography,” Prog. Retinal Eye Res., vol. 41, pp. 26–43,
+2014.
+[21] X. Liang, V. Crecea, and S. A. Boppart, “Dynamic optical coherence elas-
+tography: A review,” J. Innov. Opt. Health Sci., vol. 3, no. 04, pp. 221–233,
+2010.
+[22] V. Egorov, S. Ayrapetyan, and A. P. Sarvazyan, “Prostate mechanical
+imaging: 3D image composition and feature calculations,” IEEE Trans.
+Med. Imag., vol. 25, no. 10, pp. 1329–1340, Oct. 2006.
+[23] V. Egorov and A. P. Sarvazyan, “Mechanical imaging of the breast,” IEEE
+Trans. Med. Imag., vol. 27, no. 9, pp. 1275–1287, Sep. 2008.
+[24] A. Sarvazyan and V. Egorov, “Mechanical imaging—A technology for 3D
+visualization and characterization of soft tissue abnormalities: A review,”
+Curr. Med. Imag., vol. 8, no. 1, pp. 64–73, 2012.
+[25] L. G. Olson et al., “An inverse problem approach to stiffness mapping
+for early detection of breast cancer: Tissue phantom experiments,” Inverse
+Problems Sci. Eng., vol. 27, no. 7, pp. 1006–1037, 2019.
+[26] B.Wang,L.Wu,K.Yin,U.M.Ascher,L.Liu,andH.Huang,“Deformation
+capture and modeling of soft objects,” ACM Trans. Graph., vol. 34, no. 4„
+2015, Art. no. 94.
+[27] H. Xu, Y. Li, Y. Chen, and J. Barbič, “Interactive material design using
+model reduction,” ACM Trans. Graph., vol. 34, no. 2, pp. 1–14, 2015.
+[28] R. Ambrus, V. Guizilini, N. Kuppuswamy, A. Beaulieu, A. Gaidon, and
+A. Alspach, “Monocular depth estimation for soft visuotactile sensors,” in
+Proc. IEEE 4th Int. Conf. Soft Robot., 2021, pp. 643–649.
+[29] H.-J. Huang, X. Guo, and W. Yuan, “Understanding dynamic tactile
+sensing for liquid property estimation,” in Proc. Robot. Sci. Syst., New
+York City, NY, USA, Jun. 2022, doi: 10.15607/RSS.2022.XVIII.072.
+[30] W. Yuan, C. Zhu, A. Owens, M. A. Srinivasan, and E. H. Adelson,
+“Shape-independent hardness estimation using deep learning and a Gel-
+Sight tactile sensor,” in Proc. IEEE Int. Conf. Robot. Automat., 2017,
+pp. 951–958.
+[31] W. Yuan, S. Wang, S. Dong, and E. Adelson, “Connecting look and feel:
+Associating the visual and tactile properties of physical materials,” in Proc.
+IEEE Conf. Comput. Vis. Pattern Recognit., 2017, pp. 4494–4502.
+[32] X. Jia, R. Li, M. A. Srinivasan, and E. H. Adelson, “Lump detection with a
+GelSight sensor,” in Proc. IEEE World Haptics Conf., 2013, pp. 175–179.
+[33] E.Donlon,S.Dong,M.Liu,J.Li,E.Adelson,andA.Rodriguez,“GelSlim:
+A high-resolution, compact, robust, and calibrated tactile-sensing finger,”
+in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst., 2018, pp. 1927–1934.
+[34] I. H. Taylor, S. Dong, and A. Rodriguez, “GelSlim 3.0: High-resolution
+measurement of shape, force and slip in a compact tactile-sensing finger,”
+in Proc. Int. Conf. Robot. Automat., 2022, pp. 10781–10787.
+[35] T. Yamamoto, B. Vagvolgyi, K. Balaji, L. L. Whitcomb, and A. M. Oka-
+mura, “Tissue property estimation and graphical display for teleoperated
+robot-assisted surgery,” in Proc. IEEE Int. Conf. Robot. Automat., 2009,
+pp. 4239–4245.
+[36] A. L. Trejos, J. Jayender, M. Perri, M. D. Naish, R. V. Patel, and R.
+Malthaner, “Robot-assisted tactile sensing for minimally invasive tumor
+localization,” Int. J. Robot. Res., vol. 28, no. 9, pp. 1118–1133, 2009.
+[37] H. Kim, S. Choi, and W. K. Chung, “Feasibility of a novel indicator for
+lump detection using contact pressure distribution,” in Proc. IEEE/RSJ Int.
+Conf. Intell. Robots Syst., 2015, pp. 2111–2117.
+[38] Z. Zhou et al., “Methods to recognize depth of hard inclusions in soft tissue
+using ordinal classification for robotic palpation,” IEEE Trans. Instrum.
+Meas., vol. 71, 2022, Art. no. 2516512.
+[39] S. Zhang, “High-speed 3D shape measurement with structured light meth-
+ods: A review,” Opt. Lasers Eng., vol. 106, pp. 119–131, 2018.
+[40] M.A.Hopcroft,W.D.Nix,andT.W.Kenny,“WhatistheYoung’smodulus
+of silicon?,” J. Microelectromech. Syst., vol. 19, no. 2, pp. 229–238,
+2010.
+[41] Z. Wang, A. C. Bovik, H. R. Sheikh, and E. P. Simoncelli, “Image quality
+assessment: From error visibility to structural similarity,” IEEE Trans.
+Image Process., vol. 13, no. 4, pp. 600–612, Apr. 2004.
+[42] D. Poobathy and M. Chezian, “Edge detection operators: Peak signal to
+noise ratio based comparison,” Int. J. Image, Graph. Signal Process., vol. 6,
+pp. 55–61, 2014.
+[43] T. Chai and R. R. Draxler, “Root mean square error (RMSE) or mean abso-
+lute error (MAE)? – Arguments against avoiding RMSE in the literature,”
+Geoscientific Model Develop., vol. 7, pp. 1247–1250, 2014.
+[44] U. Sara, M. Akter, and M. S. Uddin, “Image quality assessment through
+FSIM, SSIM, MSE and PSNR — A comparative study,” J. Comput.
+Commun., vol. 7, no. 3, pp. 8–18, 2019.
+[45] S. Ahmed, U. Kamal, and M. K. Hasan, “DSWE-Net: A deep learn-
+ing approach for shear wave elastography and lesion segmentation us-
+ing single push acoustic radiation force,” Ultrasonics, vol. 110, 2021,
+Art. no. 106283.
+[46] F. Dai et al., “B-mode ultrasound to elastography synthesis using multi-
+scale learning,” Ultrasonics, vol. 138, 2024, Art. no. 107268.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 07,2025 at 08:40:17 UTC from IEEE Xplore. Restrictions apply.
+XIANG et al.: TACTILE ELASTOGRAPHY 3737
+[47] G. Kim et al., “A new voxelization strategy in compressed-sensing (CS)-
+based iterative CT reconstruction for reducing computational cost: Simu-
+lation and experimental studies,” J. Med. Biol. Eng., vol. 38, pp. 129–137,
+2018.
+[48] P. Maken and A. Gupta, “2D-to-3D: A review for computational 3D image
+reconstruction from X-ray images,” Arch. Comput. Methods Eng., vol. 30,
+no. 1, pp. 85–114, 2023.
+[49] C. Papadacci, E. A. Bunting, and E. E. Konofagou, “3D quasi-static
+ultrasound elastography with plane wave in vivo,” IEEE Trans.Med.Imag.,
+vol. 36, no. 2, pp. 357–365, Feb. 2017.
+[50] D. Fovargue, D. Nordsletten, and R. Sinkus, “Stiffness reconstruction
+methods for MR elastography,” NMR Biomed., vol. 31, no. 10, 2018,
+Art. no. e3935.
+[51] L. Robert, F. Nazaret, T. Cutard, and J.-J. Orteu, “Use of 3-D digital image
+correlation to characterize the mechanical behavior of a fiber reinforced
+refractory castable,” Exp. Mechan., vol. 47, no. 6, pp. 761–773, 2007.
+[52] J. C. Gwilliam, Z. Pezzementi, E. Jantho, A. M. Okamura, and S. Hsiao,
+“Human vs. robotic tactile sensing: Detecting lumps in soft tissue,” in
+Proc. IEEE Haptics Symp., 2010, pp. 21–28.
+[53] J. Dai, Y. Li, K. He, and J. Sun, “R-FCN: Object detection via region-based
+fully convolutional networks,” in Proc. Adv. Neural Inf. Process. Syst.,
+2016, vol. 29, pp. 379–387.
+[54] P. H. S. Torr, “Bayesian model estimation and selection for epipolar
+geometry and generic manifold fitting,” Int. J. Comput. Vis., vol. 50,
+pp. 35–61, 2002.
+[55] G. Rizzi, J. J. Chung, A. Gawel, L. Ott, M. Tognon, and R. Siegwart, “Ro-
+bust sampling-based control of mobile manipulators for interaction with
+articulated objects,” IEEE Trans. Robot., vol. 39, no. 3, pp. 1929–1946,
+Jun. 2023.
+[56] R. Platt, F. Permenter, and J. Pfeiffer, “Using Bayesian filtering to localize
+flexible materials during manipulation,” IEEE Trans. Robot., vol. 27, no. 3,
+pp. 586–598, Jun. 2011.
+[57] S. Wang, Y. She, B. Romero, and E. Adelson, “GelSight wedge: Measuring
+high-resolution 3D contact geometry with a compact robot finger,” in Proc.
+IEEE Int. Conf. Robot. Automat., 2021, pp. 6468–6475.
+[58] W. Li et al., “L3 F-TOUCH: A wireless GelSight with decoupled tactile
+and three-axis force sensing,” IEEE Robot. Autom. Lett., vol. 8, no. 8,
+pp. 5148–5155, Aug. 2023.
+[59] H. Kim, L. Yoo, A. Shin, and J. L. Demer, “Determination of ratio of
+bovine extraocular muscle by computed X-ray tomography,” BioMed Res.
+Int., vol. 2013, no. 1, 2013, Art. no. 197479.
+[60] Y. Wang, M. Koen, and D. Ma, “Low-noise CMOS TCG amplifier with
+adaptive gain control for ultrasound imaging receivers,” IEEE Trans.
+Circuits Syst. II: Exp. Briefs, vol. 58, no. 1, pp. 26–30, Jan. 2011.
+[61] G.-Y. Li and Y. Cao, “Mechanics of ultrasound elastography,” Proc. Roy.
+Soc. A: Math., Phys. Eng. Sci., vol. 473, no. 2199, 2017, Art. no. 20160841.
+[62] A. Padmanabha, F. Ebert, S. Tian, R. Calandra, C. Finn, and S. Levine,
+“OmniTact: A multi-directional high-resolution touch sensor,” in Proc.
+IEEE Int. Conf. Robot. Automat., 2020, pp. 618–624.
+[63] D. Ma, E. Donlon, S. Dong, and A. Rodriguez, “Dense tactile force
+estimation using GelSlim and inverse FEM,” in Proc. Int. Conf. Robot.
+Automat., 2019, pp. 5418–5424.
+[64] J. T. Iivarinen, R. K. Korhonen, P. Julkunen, and J. S. Jurvelin, “Ex-
+perimental and computational analysis of soft tissue stiffness in forearm
+using a manual indentation device,” Med. Eng. Phys., vol. 33, no. 10,
+pp. 1245–1253, 2011.
+[65] W. Kabir, C. D. Bella, P. F. Choong, and C. D. O’Connell, “Assessment
+of native human articular cartilage: A biomechanical protocol,” Cartilage,
+vol. 13, no. 2_suppl, pp. 427S–437S, 2021.
+[66] K. Sato, K. Kamiyama, H. Nii, N. Kawakami, and S. Tachi, “Measurement
+of force vector field of robotic finger using vision-based haptic sensor,” in
+Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst., 2008, pp. 488–493.
+[67] S. K. Melly, L. Liu, Y. Liu, and J. Leng, “A review on material models for
+isotropic hyperelasticity,” Int. J. Mech. Syst. Dyn., vol. 1, no. 1, pp. 71–88,
+2021.
+Yichen Xiang received the B.S. degree in instru-
+ment science and engineering in 2021 from Southeast
+University, Nanjing, China, where she is currently
+working toward the Ph.D. degree in robotics with the
+Jiangsu Key Lab of Remote Measurement and Con-
+trol, School of Instrument Science and Engineering.
+Her research interests include haptics, tactile, and
+robotics.
+Lifeng Zhu (Member, IEEE) received the Ph.D. de-
+gree in computer science from Peking University,
+Beijing, China, in 2012.
+He is currently a Professor with the Department
+of Instrument Science and Engineering, Southeast
+University, Nanjing, China. His research interests
+include visual computing, human computer interac-
+tion, robotics, particularly shape modeling, physical
+simulation, and their applications in medical science
+and fabrication.
+Aiguo Song (Senior Member, IEEE) received the
+B.S. degree in automatic control and the M.S. de-
+gree in measurement and control from the Nanjing
+University of Aeronautics and Astronautics, Nanjing,
+China, in 1990 and 1993, respectively, and the Ph.D.
+degree in measurement and control from Southeast
+University, Nanjing, China, in 1996.
+He is currently a Professor with the Department of
+Instrument Science and Engineering, Southeast Uni-
+versity. His research interests include haptic display,
+robot tactile sensor, and telerehabilitation robot.
+Dr. Song is a Member of the Chinese Instrument Association.
+Yongjie Jessica Zhang received the B.Eng. degree
+in automotive engineering in 1996 and the M.Eng.
+degree in engineering mechanics in 1999 from Ts-
+inghua University, Beijing, China, the M.Eng. degree
+in aerospace engineering and engineering mechanics
+in 2002, and the Ph.D. degree in computational en-
+gineering and sciences in 2005 from the Institute for
+Computational Engineering and Sciences, the Uni-
+versity of Texas at Austin, Austin, TX, USA.
+She is the George Tallman Ladd and Florence Bar-
+rett Ladd Professor of mechanical engineering with
+Carnegie Mellon University, Pittsburgh, PA, USA, with a courtesy appointment
+in biomedical engineering. Her research interests include computational geom-
+etry, isogeometric analysis, finite element method, data-driven modeling, image
+processing, and mesh generation.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 07,2025 at 08:40:17 UTC from IEEE Xplore. Restrictions apply.
+

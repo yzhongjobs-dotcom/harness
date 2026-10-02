@@ -1,0 +1,348 @@
+# ARIS Method Design — 最终通用要求
+
+## 1. 唯一最终目标
+
+* 优化 ARIS 的 **Method Design**，使 Harness 能真正设计出具有**顶会顶刊核心贡献潜力**的方法，而不是机械符合某份修改方案。
+* 修改方案、Batch 划分、schema、Gate 都只是实现手段；如果真实实现表明原方案有问题，应以**最佳 Harness**为准。
+
+---
+
+## 2. Method Design 的核心科研路线
+
+主线固定为：
+
+`真实 Failure → Mechanism-Level RCA → Required Mechanism Change → 找到强 Source Mechanism → 方法迁移/改造 → Strong Method Seed`
+
+其中最重要的两个能力是：
+
+* **根因到底能不能真的分析出来**：不能停在“鲁棒性差、泛化差、性能不好、固定方法不够自适应”等表层描述，而要定位足以解释关键 Failure、且能够被方法干预的主要 causal/computational mechanism。
+* **能不能主动找到其他领域真正可迁移的方法机制**：不是从热门算法出发，而是先由 Target RCA/RMC 确定必须改变什么机制，再寻找已经成功改变同类 causal/computational relation 的 Source Mechanism。
+
+始终遵守：
+
+* **Problem-first, not method-first.**
+* **Mechanism-first, not component-first.**
+* **Necessity before novelty.**
+* **Causal intervention, not feature similarity.**
+* **Minimal natural repair, not architecture accumulation.**
+* **Refutation before confirmation.**
+
+---
+
+## 3. 跨领域方法迁移的三个关键动作
+
+### 1. 找到真实 Problem–Intervention Pair
+
+恢复：
+
+`Source Problem → Source Intervention → Changed Variable / Structure → Causal Effect → Outcome → Assumptions / Boundary`
+
+真正迁移的是**方法解决问题的机制，而不是方法表面形式**。
+
+### 2. 判断 Intervention-Level Isomorphism
+
+核心不是任务、算法或 architecture 相似，而是：
+
+`Target Required Mechanism Change ↔ Source Intervention`
+
+硬条件：
+
+> **Source Intervention 实际改变的 causal/computational relation，必须就是 Target RCA/RMC 已经证明必须改变的关系，并且改变方向、causal/intervention position、activation condition 等正确。**
+
+真正需要同构的是 **intervention structure**，不一定是两个领域原来的 problem story。
+
+### 3. 根据 Target Constraints 自然迁移 / 改造
+
+形成：
+
+`Source Mechanism + Target Constraints → Assumption–Constraint Collision → Necessary Adaptation → Final Method`
+
+只有真实 Target Constraint、assumption mismatch 或 Residual MUST 才能驱动 adaptation。
+
+没有真实冲突时，不得为了体现创新而额外增加模块。
+
+---
+
+## 4. 最终方法必须“自然长出来”
+
+删除全部 Source-domain story 后，仍必须成立：
+
+`Target Failure → Root Cause → Required Mechanism Change → Target Constraints → Final Method`
+
+核心问题：
+
+> **从目标问题自身的 Root Cause 出发，这个方法是否仍然显得必要、自然、无冗余？**
+
+真正好的迁移最终应表现为：
+
+> **方法像是从 Target Root Cause 自然推导出来的。**
+
+Source domain 只负责告诉研究者**去哪里发现这个解决机制**。
+
+Final Method 应是最小 causal repair program，而不是 Method Soup。
+
+---
+
+## 5. 顶会顶刊标准
+
+`Valid Method Seed ≠ Top-Venue Strong Method Seed`
+
+需要真正检查：
+
+* Problem Value；
+* Necessity；
+* Bottleneck Relevance / Causal Leverage；
+* Target Intervention Novelty；
+* Mechanism Delta；
+* Scientific / Conceptual Delta；
+* Closest-Prior Separation；
+* Causal Coherence；
+* Minimality；
+* Natural Derivation；
+* Claim-Proportional Feasibility；
+* Discriminative Validation。
+
+其中：
+
+* Novelty 判断 causal intervention / mechanism change，而不是算法名称。
+* Source primitive 已存在、Source mechanism 成熟、Target adaptation 小，本身都不能否定创新。
+* Performance gain、算法名字、模块数量、复杂度不能代替 Scientific Delta。
+* 任一 critical scientific FAIL 不能被 weighted score 或其他指标抵消。
+
+最核心因果一致性：
+
+`Target Required Structural Change = Selected Principle / Source Intervention = Final Method Real Computational Change`
+
+Harness 必须能够真正区分：
+
+`普通方法迁移 / application / method soup`
+
+与
+
+`Top-Venue-Potential Strong Method Seed`
+
+---
+
+## 6. 科研流程必须真实进入 Harness
+
+每个必要科研步骤最终都要压成：
+
+`Input → Cognitive Operation → Required Evidence → PASS / FAIL → Recovery`
+
+并形成真实 execution closure：
+
+`Production → Reviewer → Gate → Controller consume / Return → downstream`
+
+科研标准不能只存在于：
+
+* Prompt；
+* Skill；
+* Schema；
+* Artifact 名称；
+
+而必须**真实改变后续 Method Design reasoning 和 lifecycle**。
+
+Downstream 必须实际消费 upstream 已接受的 scientific conclusions / Evidence，而不是重新生成、旁路或仅作记录。
+
+---
+
+## 7. Reviewer / Validator / Controller 职责严格分离
+
+* **Reviewer**：负责 scientific semantic judgment，包括因果真实性、机制正确性、必要性、同构、Novelty、Scientific Delta、Top-Venue sufficiency 等。
+* **Validator**：只负责 schema、ID/ref、enum、hash、binding、currentness、closure 等机械可判定事实。
+* **Controller**：负责 workflow lifecycle、Gate、return、invalidation/archive、terminal 和 state。
+* **Human**：只承担科研流程明确要求的人类决策。
+
+不能用字段非空、数量、关键词、机械评分或其他 Validator 规则代替 scientific judgment。
+
+---
+
+## 8. Editing discipline
+
+**Surgical editing**
+Modify only what is required to achieve the requested target. Preserve unrelated correct content, structure, and behavior.
+
+**Minimal sufficient change**
+Make the smallest complete change that satisfies the requirement. Do not add speculative abstractions, fallbacks, compatibility layers, cleanup, refactors, or adjacent improvements unless required.
+
+**Target-state editing**
+When correcting existing content, replace the incorrect state directly with the intended final state. Do not preserve the superseded state as negation, contrast, migration narrative, correction history, legacy alias, or defensive wording unless explicitly required.
+
+如果局部修补会留下双 authority、重复结构、长期错误抽象或明显结构性负担，则直接做达到**单一正确目标状态**所必需的最小结构性替换 / 重构。
+
+**Minimal 指最小完整目标结构，不是最少修改行数。**
+
+---
+
+## 9. Harness 架构要求
+
+* 使用**最小充分的 Harness 机制**保证科研流程真实执行，同时不破坏现有系统骨架。
+* 不建立双轨 workflow。
+* 不建立 parallel scientific authority。
+* 不建立第二 Evidence registry、第二 state machine、第二 reviewer/backend、第二 return engine、第二 scientific lifecycle。
+* canonical machine truth 保持唯一。
+* view / report 不得反向成为第二 authority。
+* 优先复用已有 Controller / Evidence / Reviewer / Human / State / History 等 generic infrastructure。
+* 如果现有 generic infrastructure 能表达目标语义，就只做必要扩展；只有真实结构缺口才做最小结构性修改。
+* 不为当前 impedance-control E2E 硬编码专用科研逻辑。
+
+---
+
+## 10. 不做任何安全过度设计
+
+这是个人自用 Harness。
+
+不新增：
+
+* permissions；
+* authentication；
+* authorization；
+* anti-tamper；
+* trust chain / proof chain；
+* cryptographic attestation / proof；
+* security receipt；
+* 为防 Main/user 修改而建立的新 security boundary。
+
+只保留科研流程正确运行所必需的：
+
+`version / hash / artifact binding / currentness / state`
+
+以及相应 reviewed-version / accepted-upstream binding。
+
+判断标准：
+
+> **如果删掉该机制只会降低“防攻击能力”，则不需要；如果会导致 Harness 无法确定自己正在消费哪个科研状态或 artifact version，则可以保留。**
+
+不得借某个 Batch 继续把现有 binding / attestation 扩展成 security architecture。
+
+---
+
+## 11. Batch 边界
+
+* 每个 Batch 只实现自己的职责。
+* 已验收 Batch 不重新设计、不顺手 cleanup。
+* 不提前实现后续 Batch 的 scientific semantics。
+* 不顺手修与当前目标无关的问题。
+* 如果当前 Batch 的正确实现必须修改共享基础设施，只修改到支撑当前目标所需的最小程度。
+* 如果真实 implementation 暴露冻结方案本身存在科研或结构问题，以**最佳 Harness**为目标处理，但不得借此扩大到无关架构修改。
+* 每个 Batch：
+  `implementation → targeted validation → STOP → independent acceptance → PASS → next Batch`
+
+不得自动跨 Batch。
+
+---
+
+## 12. 提示词要求
+
+Prompt 必须准确、完整表达真实任务，并明确：
+
+**目标、具体修改内容、范围/边界、约束、目标状态、验收标准、验证方式。**
+
+要求：
+
+* 各部分颗粒度一致；
+* 无遗漏；
+* 无冲突；
+* 不重复整个科研方法论；
+* 不写空泛强调；
+* 不堆 implementation trivia；
+* 不预设具体代码实现，除非该实现方式本身是目标正确性的必要条件；
+* 明确哪些必须修改、哪些不得修改；
+* 已冻结事实直接作为约束，不重新讨论；
+* 以**最短充分**为准，而不是越短越好。
+
+Prompt 的目标是：
+
+> **让 Codex 准确完成当前任务。**
+
+而不是让 Prompt 本身显得完整、复杂或宏大。
+
+---
+
+## 13. 验收要求
+
+验收必须基于真实 production path 的反向审计。
+
+验收证据明确区分：
+
+1. **Static implementation correctness**
+
+   * 真实 production code / workflow / contract / consumer 是否正确。
+
+2. **Regression design correctness**
+
+   * 正负 regression 是否真正覆盖目标 failure mode 和关键 lifecycle。
+
+3. **Tests actually executed PASS**
+
+   * 需要真实运行的测试是否实际执行并通过。
+
+发现问题时必须明确：
+
+* 错误位于哪个真实 production implementation；
+* 它为什么会影响科研正确性或 Harness 正确性；
+* 达到正确目标状态所需的**最小完整修复**是什么。
+
+如果真实 implementation 暴露原方案本身存在问题：
+
+> **目标是修出最佳 Harness，而不是机械服从旧冻结文字。**
+
+---
+
+## 14. 测试分工
+
+### 网页版 GPT 负责能够可靠完成的静态 / 反向验收
+
+包括：
+
+* latest HEAD / commit / diff；
+* production-path reverse audit；
+* workflow；
+* contracts / canonical authority；
+* Reviewer / Validator / Controller 职责；
+* return / invalidation / archive；
+* duplicate / parallel system；
+* Batch boundary；
+* security overdesign；
+* regression 设计；
+* mirror / static consistency；
+* Editing discipline / diff scope。
+
+这些不重复塞进 Codex Prompt 消耗实现 token。
+
+### 本地 Codex 只负责网页版客观不能可靠完成的真实执行验证
+
+包括：
+
+* pytest / runtime；
+* CLI transition；
+* filesystem / state invalidation；
+* compile / import；
+* `git diff --check`；
+* 其他必须依赖真实本地执行环境的测试。
+
+如果修改触及 generic infrastructure，再按实际影响范围扩大 regression；不机械执行与当前修改无关的测试。
+
+---
+
+# 全局优先级
+
+始终按照：
+
+**科研正确性 / 最终 Method Design 能力**
+
+>
+
+**Harness 架构正确性**
+
+>
+
+**复用已有实现**
+
+>
+
+**修改量最小**
+
+执行。
+
+不能为了少改代码而保留错误科研结构；也不能为了“更完善”而修改已经正确且与当前目标无关的内容。

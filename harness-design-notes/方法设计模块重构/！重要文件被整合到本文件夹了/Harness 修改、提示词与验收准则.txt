@@ -1,0 +1,159 @@
+# 03｜Harness 修改、提示词与验收准则
+
+## 一、总体优先级
+
+**科研正确性与最终 Method Design 能力**>**Harness 架构正确性**>**复用已有实现**>**修改量最小**
+
+修改方案、Batch、schema、Gate 都是实现手段；如果真实实现暴露原方案问题，以**最佳 Harness**为准。
+
+Minimal sufficient 指达到正确目标状态所需的**最小完整修改**，不是代码行数越少越好。
+
+## 二、科研流程必须真实进入 Harness
+
+每个必要科研步骤落实为：
+
+`Input`
+→ `Cognitive Operation`
+→ `Required Evidence`
+→ `PASS / FAIL`
+→ `Recovery`
+
+并形成真实闭环：
+
+`Production`
+→ `Reviewer`
+→ `Gate`
+→ `Controller consume / Return`
+→ `downstream`
+
+科研标准不能只存在于 Prompt、Skill、Schema 或 Artifact 名称里；downstream 必须实际消费 upstream 已接受的 scientific conclusions / Evidence。
+
+## 三、角色与架构边界
+
+* **Reviewer**：scientific semantic judgment。
+* **Validator**：schema、ID/ref、enum、hash、binding、currentness、closure 等机械事实。
+* **Controller**：workflow lifecycle、Gate、return、invalidation/archive、terminal/state。
+* **Human**：流程明确要求的人类科研决策。
+
+不以字段非空、关键词、数量或机械分数代替 scientific judgment。
+
+Harness 保持 canonical machine truth 唯一；优先复用已有 Controller / Evidence / Reviewer / Human / State / History 等 generic infrastructure。
+
+不建立第二 Evidence registry、第二 state machine、第二 reviewer/backend、第二 return engine、第二 scientific lifecycle，也不为单个 E2E 硬编码 production scientific logic。
+
+## 四、Editing discipline
+
+### Surgical editing
+
+Modify only what is required to achieve the requested target. Preserve unrelated correct content, structure, and behavior.
+
+### Minimal sufficient change
+
+Make the smallest complete change that satisfies the requirement. Do not add speculative abstractions, fallbacks, compatibility layers, cleanup, refactors, or adjacent improvements unless required.
+
+### Target-state editing
+
+When correcting existing content, replace the incorrect state directly with the intended final state. Do not preserve the superseded state as negation, contrast, migration narrative, correction history, legacy alias, or defensive wording unless explicitly required.
+
+如果局部修补会留下双 authority、重复结构、长期错误抽象或明显结构性负担，则做达到**单一正确目标状态**所必需的最小结构性替换 / 重构。
+
+## 五、Batch / Scope
+
+* 每个 Batch 只实现自己的职责。
+* 已验收 Batch 不重新设计、不顺手 cleanup。
+* 不提前实现后续 Batch 的 scientific semantics。
+* 不修改与当前目标无关的正确内容。
+* 当前 Batch 必须修改共享基础设施时，只修改到支撑当前目标所需的最小程度。
+* 每个 Batch：
+  `implementation → targeted validation → STOP → independent acceptance → PASS → next Batch`
+* 不自动跨 Batch。
+
+## 六、不做安全过度设计
+
+这是个人自用 Harness。
+
+不新增 permissions、authentication、authorization、anti-tamper、trust/proof chain、cryptographic proof/attestation、security receipt 或新的 security boundary。
+
+只保留科研流程正确运行所必需的：
+
+`version / hash / artifact binding / currentness / state`
+
+以及 reviewed-version / accepted-upstream binding。
+
+判断标准：
+
+**如果删除某机制只会降低“防攻击能力”，则不需要；如果会导致 Harness 无法确定正在消费哪个科研状态或 artifact version，则可以保留。**
+
+## 七、提示词设计标准
+
+**准确完整表达真实任务，明确目标、具体修改内容、范围/边界、约束、目标状态、验收标准和验证方式；各项颗粒度对齐、无遗漏、无冲突。删除重复、空泛强调和非必要实现细节，以最短充分为准。**
+
+同时：
+
+* 明确必须修改与不得修改；
+* 已冻结事实直接作为约束；
+* 不重复与当前任务无关的科研方法论；
+* 不预设非必要具体代码实现。
+
+Prompt 的目标是**让 Codex 准确完成当前任务**。
+
+## 八、验收标准
+
+基于真实 production path 反向验收，并区分：
+
+1. **Static implementation correctness**
+   production code / workflow / contract / consumer 是否正确。
+
+2. **Regression design correctness**
+   正负 regression 是否覆盖目标 failure mode 和关键 lifecycle。
+
+3. **Tests actually executed PASS**
+   需要真实运行的测试是否实际执行并通过。
+
+发现问题时明确：
+
+`真实 production implementation`
+→ `为什么影响科研 / Harness`
+→ `达到正确目标状态所需的最小完整修复`
+
+最终验收以科研正确性、Harness 正确性和真实 execution closure 为准。
+
+## 九、测试分工
+
+### 网页 GPT
+
+负责能够可靠静态检查的：
+
+`HEAD / diff / production-path reverse audit / workflow / contracts / canonical authority / role separation / return-invalidation / Batch boundary / duplicate-parallel system / security overdesign / regression design / static consistency`
+
+### 本地 Codex
+
+负责必须依赖真实执行环境的：
+
+`pytest/runtime / CLI transition / filesystem-state behavior / compile-import / git diff --check / 其他环境相关测试`
+
+测试范围按真实修改面与风险决定，不机械扩大。
+
+## 十、最终 Scientific Capability E2E
+
+最终系统级验收不能只证明代码/schema“能承载正确答案”，还要证明 **Harness 自己会做**。
+
+不预置 RCA、RMC、候选领域、目标 Source、Solution Principle 或 Final Method，让 Harness 自己完成：
+
+`Failure`
+→ `RCA`
+→ `RMC`
+→ `跨域发现`
+→ `Problem–Intervention Pair`
+→ `Intervention-Level Isomorphism`
+→ `Principle`
+→ `Target-Constraint-driven Adaptation`
+→ `Strong Method Seed`
+
+并能拒绝：
+
+* 表层 RCA；
+* Simple Repair 已能解决的伪创新；
+* surface analogy；
+* 直接搬 Source；
+* 有效但不够 Top-Venue 的方法。

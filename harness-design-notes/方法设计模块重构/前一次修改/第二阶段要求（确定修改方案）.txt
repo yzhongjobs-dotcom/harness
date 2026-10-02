@@ -1,0 +1,119 @@
+
+
+## 当前阶段最终要求
+
+### 1. 总目标
+
+优化 ARIS Harness 的 `method_design`，使其能够在真实长任务中**稳定产出具有顶会顶刊潜力、真正有科研创新性的 Method**，解决当前输出“合理但工程化、创新深度不足”的根本问题。
+
+最终方法必须同时满足：
+
+* **问题驱动**：真正解决研究 Problem / Root Cause；
+* **发表潜力**：形成有价值的 Scientific Delta，而不是仅得到可工作的工程方案。
+
+---
+
+### 2. 当前阶段定位
+
+Phase I 的 **Scientific Methodology 已经确定**。当前是：
+
+> **Phase II — Harness Engineering**
+
+当前不再重新设计 Methodology，而是把已经确定的方法论**准确、完整地转化为真实、可执行、可持续推进的 Harness 流程**。
+
+核心标准是：
+
+> 方法论规定的科研认知过程必须在真实运行中实际发生，而不能只是写在 Prompt / Skill 文档里，最终仍退化成一次普通 LLM brainstorming。
+
+---
+
+### 3. 必须落实的 Method Design 科研主线
+
+真实 Method Design 应实现：
+
+`Problem / RCA`
+→ `Required Mechanism Change`
+→ `Required Capability`
+→ `Principle Search`
+→ `Candidate Principles`
+→ `Discriminating Prediction / Test`
+→ `Evidence Update`
+→ `Principle Convergence`
+→ `Selected Principle`
+→ `Method Adaptation`
+→ `Minimal Faithful Realization`
+→ `Residual Mechanism / Adaptation Gaps`
+→ `Minimal Necessary Composition`
+→ `Final Scientific Delta Claim`
+→ `Full Causal Validation`
+
+其核心原则是：
+
+> **先形成、比较并证伪/支持 Solution Principle，再进入具体 Method；避免从 Problem/RCA 直接跳到算法、模块组合或第一个可行技术方案。**
+
+跨领域结构同构搜索是默认必执行的核心搜索动作，但不强制最终采用跨领域来源，也不得制造表面 analogy。
+
+---
+
+### 4. Harness 落地标准
+
+对于 Methodology 中的**每一个关键科研认知操作及其相互依赖关系**，都必须完整映射到真实 Harness 执行链。
+
+这个映射必须覆盖该操作从**触发条件和科研输入，到实际执行、必要科研产物、信息持久化与后续消费、审查或人工决策、流程推进/循环/回退，以及与上下游操作之间的依赖关系**的完整生命周期。
+
+尤其必须保证：
+
+> Candidate Principle 的生成、竞争、测试、Evidence Update、修订/淘汰/收敛以及收敛后的 Method Adaptation 构成真实闭环，任何关键科研判断都不能只存在于说明文字中而没有真实执行和后续消费。
+
+具体是否需要 phase、artifact、ledger、reviewer、Gate 或其他结构，**由实现这一科研流程的最小必要需求决定，不预设工程形式**。
+
+而且，千万注意，不需要任何安全机制！不需要任何过度设计！必须符合科研流程和标准，而且仍需要一定的harness机制确保流程不变成llm自己的头脑风暴，在此前提下能满足正常流程的使用即可
+
+---
+
+### 5. 修改范围与边界
+
+采用已经确定的：
+
+> **Method Design Scientific Core Replacement**
+
+即替换现有以 `dominant solution → METHOD_ROUTES → route selection` 为核心的 Method Design 科学逻辑，并使其所有真实上下游消费者与新版 scientific core 一致。
+
+**除实现这一替换所必需的依赖性修改外，ARIS 中其他已经正确、且不受本次目标影响的内容、结构和行为全部保持不变。**
+
+不是继续给旧 scientific core 打补丁，也不是重构整个 ARIS。
+
+---
+
+### 6. 当前 E2E 要求
+
+现有 impedance-control E2E 必须在保留已经接受且仍有效的上游科研结果的前提下迁移到新版 Method Design。
+
+旧 A/B/C `METHOD_ROUTES` 不转换为 Candidate Principles；已经完成且与新版 workflow 兼容的执行前缀继续保留，旧 Method Design 部分正式回退后，按照新版 workflow 重建尚未执行的后续流程，并从新版 `method_design` 重新执行。
+
+不得为了迁移而无必要地重跑已经成立的上游阶段或建立当前项目专用的替代执行路径。
+
+---
+
+### 7. 修改纪律
+
+所有修改严格遵守：
+
+* **Surgical editing**：Modify only what is required to achieve the requested target. Preserve unrelated correct content, structure, and behavior.
+* **Minimal sufficient change**：Make the smallest complete change that satisfies the requirement. Do not add speculative abstractions, fallbacks, compatibility layers, cleanup, refactors, or adjacent improvements unless required.
+* **Target-state editing**：When correcting existing content, replace the incorrect state directly with the intended final state. Do not preserve the superseded state as negation, contrast, migration narrative, correction history, or defensive wording unless explicitly required.
+
+---
+
+### 8. 最终验收标准
+
+验收必须以**真实 Harness 实现、真实执行路径和真实 E2E 行为**为依据，而不是以文档、命名、schema 存在或测试通过本身作为充分证明。
+
+最终必须同时证明三件事：
+
+**科研逻辑正确**：真实运行确实按照已经确定的 Principle-first、Evidence-driven Methodology 产生 Method，并同时保持 Problem-driven 和顶会顶刊 Scientific Delta 导向。
+
+**执行闭环完整**：Methodology 中所有必要科研操作及其信息流、Evidence 反馈、候选竞争、收敛、回退和上下游衔接均真实进入执行路径，没有只实现表面 artifact/schema、没有旧 scientific core 在 active path 中继续主导行为。
+
+**修改边界正确**：完成上述目标所需的修改全部落实，同时未改变任何与本次目标无关的正确内容、结构和行为，也未引入实现目标不需要的复杂度。
+

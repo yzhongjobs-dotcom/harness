@@ -1,0 +1,160 @@
+一句话概括：
+找研究问题，分析根因，然后从其他领域进行方法迁移来解决问题！！！！
+
+------------------
+
+# 最终方案：Phase I — Method Design Methodology
+
+核心主轴保持不变：
+
+**从研究问题的机制级根因出发，主动寻找其他领域中结构同构的问题—干预对，提取其 Solution Principle，并判断其能否合理迁移到本领域。**
+
+### 主流程
+
+Research Problem
+→ Mechanism-level Root Cause
+→ Required Mechanism Change
+→ Required Capability
+
+→ **Principle Search**
+
+* 第一性原理推导
+* 问题表示变换
+* 同领域机制搜索
+* **主动检查跨领域结构同构问题（核心搜索策略）**
+
+→ 对跨领域候选：
+Source Problem / Root Cause
+→ Source Intervention
+→ 被改变的关系 / 状态 / 信息结构
+→ **检查来源证据是否真正支持 Source Intervention → Mechanism Change → Outcome**
+→ **Solution Principle**
+→ Target–Source 结构映射
+→ 检查因果方向、生效条件、失配与迁移边界
+
+→ 保留少量**原理真正不同**的 Candidate Principles
+→ 明确每个 Principle 的关键未知 Knowledge / 致命假设
+→ 将 Principle 在目标域中操作化到**可检验程度**
+→ 判断 **Provisional Scientific Delta**
+→ 推导 Discriminating Prediction
+→ **设计 Cheapest Informative / Killer Test，并明确测试内容与预计成本**
+→ **Human Gate：仅提交 Candidate Principles、测试方案及预计成本；获批前不实际执行测试**
+→ **获批后执行 Cheapest Informative / Killer Test**
+→ 根据证据扩展、削弱或淘汰 Principle
+
+→ 若新证据使既有 causal premise 无法继续支撑方法推导：返回 Root Cause Analysis
+→ 否则继续 Principle 收敛
+
+→ Selected Principle
+→ Method Adaptation
+→ 判断 **Final Scientific Delta**
+→ 仅针对真实残余机制缺口进行必要的最小组合
+→ Full Causal Validation
+
+## 四个关键补强
+
+1. **问题表示变换**
+   主动改变问题的表示、抽象层级和观察视角，以发现原本不明显的同构问题，重点不是制造 analogy，而是扩大寻找真正 Solution Principle 的搜索空间。
+   **理论来源：Shannon 的 Creative Thinking，以 simplification、analogy、restatement、generalization、inversion 等认知变换扩大问题表示空间。**
+
+2. **真同构判断**
+   迁移依据不是任务名称或表面相似，而是关键关系、因果方向、干预作用和生效条件是否对应；允许局部机制同构：来源问题不需要整体与目标问题相同，只需要被迁移的关键因果结构及干预机制成立。
+   **理论来源：Gentner 的 Structure-Mapping Theory，强调映射关系结构和高阶关系，而非对象的表面属性。**
+
+3. **Principle 级搜索**
+   不在找到第一个可行方法时立即收敛，而是保留少量原理真正不同的候选，并通过新 Knowledge 更新这些候选。换句话说，
+
+   围绕 Required Mechanism Change 保留少量原理真正不同的 Candidate Principles，并明确：每个 Principle 依赖什么关键 Knowledge；哪些假设尚未成立；什么证据会支持或否定它。
+
+   目的是避免：
+
+   Root Cause → 第一个可行方法 → 工程化方案
+
+   这种 premature closure。
+   **理论来源：C-K Theory，通过 Concept space 与 Knowledge space 的相互扩展避免首个可行方案造成设计固着。**
+
+4. **证据驱动早期收敛**
+   在完整方法实现前，把候选 Principle 转化为可区分预测，设计最低成本、高信息量的测试（利用最低成本、最高辨识力的证据尽早淘汰错误路线，避免完整实现多个错误方法）；**Human Gate 批准后才执行测试**并据此淘汰错误路线。
+   **理论来源：Platt 的 Strong Inference 用判别实验区分竞争解释，Steinhardt 的研究策略优先执行能够最快降低关键不确定性的行动。**
+
+## Insight 与 Principle 的定位
+
+**Insight 不设为固定流水线阶段。**
+
+Insight 是一种：
+
+> 非显然、与证据一致，并能够改变对问题机制的理解或改变合理方法搜索空间的科学认识。
+
+它可能来自 Root Cause、问题重表述、假设失效、异常现象或跨领域同构。
+
+**Principle 必须显式存在。**
+
+Solution Principle 应表达：
+
+> 在什么条件下，通过什么干预，改变哪个关键关系 / 状态 / 信息结构，为什么能够解除 Root Cause，以及何时失效。
+
+即：
+
+Source Method
+
+→ 去除具体算法形式
+
+→ 提取真正起作用的干预机制
+
+→ Solution Principle
+
+→ 再决定目标域如何实现。
+
+它不能只是“使用某算法”的技术名称。
+
+## 跨领域迁移的最终定位
+
+**必执行的是“主动检查跨领域是否存在结构同构的问题—解决机制”，而不是要求最终方法必须来自跨领域。**
+
+因此，跨领域机制迁移仍然是这套个人 Method Design 方法论的**核心科研风格和重点搜索策略**，但不会为了满足形式而强行制造 analogy。
+
+## Scientific Delta 的两次判断
+
+### Provisional Scientific Delta
+
+在投入完整方法实现和昂贵实验前判断：
+
+> 如果这个 Principle 最终成立，它将增加什么新的科学认识？
+
+用于判断该路线当前是否形成足够科研贡献，避免把“能解决任务”直接等同于“值得作为核心科研方法”。**Principle 的真实性 / 问题解决能力与 Scientific Delta 分别判断；Provisional Scientific Delta 较弱或暂时不存在，不构成否定或淘汰 Principle 的依据。**
+
+**Technical delta 可以很小，但必须存在真实的 scientific / conceptual delta。**
+
+Scientific Delta 可以体现为新的科学知识、机制、Principle、表示、边界或此前无法建立的重要能力；其中新能力需要说明**突破了什么此前未解决的机制性限制，以及为什么此前不可行而现在能够实现**，而不能仅体现为 performance 提升或工程实现。
+
+### Final Scientific Delta
+
+方法与证据完成后重新判断：
+
+> 最终实际建立了什么此前不存在的科学知识、机制、Principle、表示、边界或能力？
+
+Final Scientific Delta 表示**实际建立的 contribution**，而不是 Method Design 阶段预期能够建立的 contribution。
+
+## Evidence Update 与回退
+
+测试结果必须用于**更新科学认识**，而不只是比较最终 performance。
+
+* 只有在 Principle 被忠实操作化、测试具有足够辨识力且生效条件成立时，矛盾证据才能用于削弱或淘汰该 Principle；否则应先检查 operationalization、test validity 或 source–target mapping。
+* 若证据只否定某个 Candidate Principle，则淘汰、修改或削弱该 Principle。
+* 若新知识使既有 Root Cause / causal premise 已不足以继续支撑 Method Design，或暴露与当前 causal chain 的实质机制冲突，则返回 Root Cause Analysis。
+
+**不要求等到 RCA 被完全证明错误才允许回退。**
+
+## 当前阶段边界
+
+这就是 Phase I 暂时收敛的方法论。
+
+当前**不修改 Harness，不展开 Controller / Validator / State / Gate 的具体工程实现**；这里只提前明确一个 Phase II 必须保持的执行边界：
+
+> **Human Gate 前只允许形成 Candidate Principles、可检验预测、测试方案及预计成本；任何实际 Cheapest Informative / Killer Test 必须在 Human Gate 批准后执行。**
+
+下一步进入 Step 3，用 RSS、CoRL、ICRA Best Paper、T-RO、IJRR、NMI 的真实顶级工作进行证伪式逆向分析，检验：
+
+**问题表示变换 → 真同构识别 → Solution Principle 提取 → Principle 竞争与证据收敛**
+
+在何种顶级工作中成立、何时不成立，并主动寻找不依赖跨领域迁移、没有显式 Principle 竞争，或当前框架无法解释的 Method-formation paths。

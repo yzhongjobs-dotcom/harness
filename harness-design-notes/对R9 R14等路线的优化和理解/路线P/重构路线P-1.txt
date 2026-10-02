@@ -1,0 +1,605 @@
+重新收敛后，**第一版方法应只做两个核心修改：① T-RO 的球形接触模型直接换成 AuSoScan 的超声探头接触模型；② T-RO 的固定阻抗改成 MPC 在线选择平移阻抗。旋转阻抗第一版先不加。**
+
+下面先把“画面”固定，再走公式。
+
+---
+
+# 1. 实际场景到底是什么
+
+选一个非常具体、已有医生/机器人证据的场景：
+
+> **机器人拿腹部常用的凸阵超声探头，在腹部做连续 survey sweep（概览扫查）。**
+
+临床腹部超声本来就主要使用 convex/curvilinear probe（凸阵探头）。([国家生物技术信息中心][1])
+
+机器人实际做两类动作，直接参考 Stanford 2026 对放射科医生操作的复现：
+
+**软腹部区域：**
+
+> 探头基本垂直于局部皮肤 → 压住 → 沿腹部滑过去。
+
+**肋缘下区域：**
+
+> 为了看到肋骨下面的肝脏等结构，探头相对表面法向**倾斜约 30°**，然后沿肋缘滑动。
+
+Stanford 直接由放射科医生操作总结出了这两种扫查，并实际让机器人执行；机器人扫查速度为 \(0.01\,m/s\)。([arXiv][2])
+
+还有一个非常重要的医生行为：
+
+> 医生静止观察时压得较重；要把探头滑去下一个位置时会**主动减小压力**，因为软组织会在探头周围隆起，形成阻碍滑动的 deformation resistance（形变阻力）。
+
+这是 Stanford 从真实放射科医生操作记录里观察到的，不是我们的假设。([arXiv][2])
+
+所以脑海中的画面就是：
+
+**凸阵探头压在软肚子上 → 沿表面滑 → 有些地方垂直扫，有些地方倾斜 30° 扫 → 希望始终保持合适压力，又不要因为压得太硬而滑不动。**
+
+---
+
+# 2. 先看 T-RO 2023 原方法在干什么
+
+把 T-RO 压缩成一条公式链：
+
+### ① 球头接触软材料
+
+球形工具压入深度：
+
+$$
+d=
+\left(
+\frac{9F^2}{16E^2R}
+\right)^{1/3}
+$$
+
+滑动时产生：
+
+$$
+F_f=
+\mu F_z
+\left[
+1+(2\nu-1)\frac{3a^2}{10R^2}
+\right]
++k_dv
+$$
+
+所以：
+
+$$
+\boxed{
+\text{当前压入+速度}
+\rightarrow
+F_n,F_t
+}
+$$
+
+ 
+
+### ② 接触力进入机器人动力学
+
+$$
+\ddot q=
+M^{-1}
+[
+\tau-C\dot q-G-J^TF_e
+]
+$$
+
+也就是：
+
+$$
+\boxed{
+F_n,F_t+\tau
+\rightarrow
+\text{机器人下一时刻怎么运动}
+}
+$$
+
+
+
+### ③ MPC 往未来模拟
+
+对未来一段时间，同时最小化：
+
+$$
+\boxed{
+\text{力误差}
++
+\text{轨迹误差}
++
+\text{控制代价}
+}
+$$
+
+于是 MPC 得到未来最合适的 joint torque（关节力矩）\(\tau\)。
+
+**但机器人 impedance（阻抗）本身是固定的。**T-RO 作者自己把这一点列为 limitation（局限）。
+
+---
+
+# 3. 修改①：球形接触直接换成 AuSoScan，不再自己发明复杂积分模型
+
+这一点我现在明确修正：
+
+> **第一版不做我之前说的通用有限面积离散积分。直接把 T-RO 的 spherical Hertz（球形赫兹）接触块替换成 AuSoScan 已经发表验证过的 cylinder–plane（圆柱–平面）超声探头接触模型。**
+
+### 为什么这样最自然？
+
+T-RO：
+
+$$
+\boxed{\text{球头}\rightarrow\text{软平面}}
+$$
+
+AuSoScan：
+
+$$
+\boxed{\text{超声探头}\rightarrow\text{软人体表面}}
+$$
+
+AuSoScan 作者就是因为**球形模型不符合超声探头几何**，才改成 cylinder-plane（圆柱–平面）Hertz 接触。
+
+所以这是**替换一个接触模型**，不是加模块。
+
+---
+
+## AuSoScan 接触模型在画面中是什么意思？
+
+探头静止压着：
+
+$$
+F_n\leftrightarrow d
+$$
+
+仍然由 Hertz 接触决定。
+
+但是探头向右滑时：
+
+```text
+       运动方向 →
+       ┌────探头────┐
+软组织 ~~╱          ╲~~
+       后面↓       前面↑
+```
+
+前方组织被推起来，后方组织卸载：
+
+$$
+a_1\neq a_2
+$$
+
+AuSoScan 建模为：
+
+$$
+a_1=\sqrt{Rd_0}-k_1v,
+\qquad
+a_2=\sqrt{Rd_0}+k_2v
+$$
+
+于是法向力变成：
+
+$$
+F_n=
+\frac{\pi LE^*}{8}
+\left(
+2\sqrt{Rd_0}+\Delta kv
+\right)
+\sqrt{\frac dR}
+$$
+
+切向阻力：
+
+$$
+\boxed{
+F_t=\mu F_n+f_b
+}
+$$
+
+其中：
+
+* \(\mu F_n\)：普通表面摩擦；
+* \(f_b\)：**软组织被探头推变形产生的额外阻力**。
+
+ 
+
+AuSoScan 已经把这个模型放进 MPC，并实验证明比只考虑 dry friction（干摩擦）的控制器获得更低的力和位置跟踪误差。
+
+### 所以第一处修改非常简单
+
+原 T-RO：
+
+$$
+\boxed{
+(d,v)
+\xrightarrow{\text{T-RO球形模型}}
+(F_n,F_t)
+}
+$$
+
+改成：
+
+$$
+\boxed{
+(d,v)
+\xrightarrow{\text{AuSoScan探头模型}}
+(F_n,F_t)
+}
+$$
+
+**后面的 T-RO 机器人动力学完全可以继续接。**
+
+---
+
+# 4. 腹部是曲面怎么办？
+
+这里也不增加复杂接触模型。
+
+Stanford 2026 已经用 stereo vision（双目视觉）构建腹部三维 surface mesh（表面网格），每个位置都有局部 surface normal（表面法向）。([arXiv][2])
+
+因此第一版：
+
+> 每走到一个位置，就以该位置的**局部切平面**作为 AuSoScan 的“plane（平面）”。
+
+即：
+
+```text
+整个腹部是弯的
+       ↓
+当前位置取一个很小的局部平面
+       ↓
+AuSoScan cylinder–plane 模型
+```
+
+**暂时不建立“探头整个面积 × 任意三维曲面”的积分模型。**
+
+只有实验发现局部平面近似误差明显，才升级。
+
+---
+
+# 5. 修改②：T-RO 固定阻抗 → MPC 在线选择阻抗
+
+这是第二个核心修改。
+
+T-RO 原来：
+
+$$
+\boxed{
+MPC\rightarrow\tau
+}
+$$
+
+阻抗固定。
+
+但 T-RO 作者自己指出：
+
+* 高阻抗 → 轨迹更准；
+* 低阻抗 → 接触力更柔顺；
+
+因此固定 impedance（阻抗）会限制运动–力性能。
+
+而已有 MPVIC（模型预测可变阻抗控制）工作已经真实实现：
+
+$$
+\boxed{
+MPC
+\rightarrow
+\text{在线选择 impedance parameters（阻抗参数）}
+}
+$$
+
+包括真实软环境和人体实验，因此“让 MPC 调阻抗”本身是可行的，不是我们凭空拼出来的。([科学直达][3])
+
+---
+
+# 6. 具体怎么接进 T-RO？这一步最重要
+
+我们让 MPC 的动作从：
+
+$$
+\tau
+$$
+
+改为：
+
+$$
+\boxed{
+a=
+(k_n,d_n,k_t,d_t)
+}
+$$
+
+暂时只有四个参数：
+
+* \(k_n,d_n\)：法向 stiffness/damping（刚度/阻尼）；
+* \(k_t,d_t\)：扫描方向 stiffness/damping（刚度/阻尼）。
+
+它们先通过 impedance controller（阻抗控制器）变成机器人实际施加的力：
+
+$$
+F_{\rm cmd}
+=
+F_d n
++
+K(a)e_x
++
+D(a)e_v
+$$
+
+再转成关节力矩：
+
+$$
+\tau=J^TF_{\rm cmd}+G+\cdots
+$$
+
+然后**重新塞回 T-RO 原来的机器人动力学**：
+
+$$
+\ddot q=
+M^{-1}
+[
+\tau-C\dot q-G-J^TF_e
+].
+$$
+
+所以完整关系是：
+
+$$
+\boxed{
+(k_n,d_n,k_t,d_t)
+\rightarrow
+F_{\rm cmd}
+\rightarrow
+\tau
+\rightarrow
+\text{机器人运动}
+\rightarrow
+d,v
+\rightarrow
+\text{AuSoScan }F_n,F_t
+}
+$$
+
+这就闭环了。
+
+---
+
+# 7. MPC 到底在算什么？对应到画面
+
+假设机器人马上要向右滑 5 cm。
+
+MPC 尝试很多组阻抗：
+
+### 候选 A：很硬
+
+$$
+k_n\uparrow,\;k_t\uparrow
+$$
+
+预测：
+
+```text
+轨迹跟得很准
+但探头压得更深
+→ 组织隆起更多
+→ AuSoScan预测 f_b ↑
+→ 更难滑
+→ 接触力波动变大
+```
+
+### 候选 B：太软
+
+$$
+k_n\downarrow,\;k_t\downarrow
+$$
+
+预测：
+
+```text
+滑得容易
+力也柔顺
+但轨迹误差变大
+```
+
+### MPC 找中间最好的
+
+例如：
+
+$$
+\min_{a_{0:H}}
+\sum
+\left[
+Q_F(F_n-F_d)^2
++
+W_p\|x-x_d\|^2
++
+R_a\|a_k-a_{k-1}\|^2
+\right]
+$$
+
+即同时最小：
+
+$$
+\boxed{
+\text{力误差}
++
+\text{扫描轨迹误差}
++
+\text{阻抗剧烈变化}
+}
+$$
+
+并满足机器人关节、力矩、阻抗上下限等约束。
+
+这就是整篇 Method（方法）最核心的预测过程。
+
+---
+
+# 8. 旋转阻抗：第一版我明确建议**不加**
+
+这是上一版另一个需要收回的地方。
+
+因为针对我们现在选定的腹部场景，Stanford 实际发现：
+
+* 医生接触力主要沿**一个方向**；
+* 他们的自主腹部扫描中 orientation（姿态）**完全使用 motion control（运动控制）**；
+* **没有 desired moment（目标力矩）**；
+* 肋缘下需要倾斜时，直接给定相对表面法向 \(-30^\circ\) 的姿态轨迹。
+
+而且真实机器人已经成功完成扫查。([arXiv][2]) ([arXiv][2])
+
+因此第一版最自然的是：
+
+$$
+\boxed{
+R_d(t)\text{：固定由扫查轨迹给定并做姿态跟踪}
+}
+$$
+
+而 MPC 只调：
+
+$$
+\boxed{
+k_n,d_n,k_t,d_t
+}
+$$
+
+**不调旋转阻抗。**
+
+IJRR 2026 确实证明 force/moment + orientation optimization（力/力矩与姿态优化）有效，说明以后加入旋转自由度是可行的；但这不能证明我们当前场景必须加。([Sage Journals][4])
+
+所以只有以后实验发现：
+
+> 倾斜扫查时“刚性姿态跟踪”和“稳定接触”出现不可解决冲突，
+
+才加入：
+
+$$
+k_r,d_r.
+$$
+
+---
+
+# 9. 现在整条技术路线终于可以压成这一张图
+
+### 输入：医生/规划器给出的腹部扫查轨迹
+
+$$
+\boxed{
+x_d(t),\quad R_d(t),\quad F_d(t)
+}
+$$
+
+画面：
+
+> 软组织区垂直扫；肋缘下倾斜约 \(30^\circ\) 扫。
+
+↓
+
+### ① 接触模型【修改 T-RO】
+
+T-RO：
+
+$$
+\text{球形 Hertz}
+$$
+
+**替换为 AuSoScan：**
+
+$$
+\boxed{
+(d,v)
+\rightarrow
+F_n,F_t
+}
+$$
+
+其中包含超声探头几何和 sliding deformation resistance（滑动形变阻力）。
+
+↓
+
+### ② 机器人动力学【完全沿用 T-RO】
+
+$$
+\boxed{
+\ddot q=
+M^{-1}[\tau-C\dot q-G-J^TF_e]
+}
+$$
+
+↓
+
+### ③ 控制动作【修改 T-RO】
+
+T-RO：
+
+$$
+\boxed{\tau}
+$$
+
+改成：
+
+$$
+\boxed{
+a=(k_n,d_n,k_t,d_t)
+}
+$$
+
+阻抗控制器把 \(a\) 转成 \(\tau\)。
+
+↓
+
+### ④ MPC【沿用 T-RO 的核心思想】
+
+对每组未来阻抗：
+
+$$
+a_{k:k+H}
+$$
+
+通过：
+
+$$
+a
+\rightarrow\tau
+\rightarrow
+\text{机器人运动}
+\rightarrow(d,v)
+\rightarrow
+F_n,F_t
+$$
+
+一路预测未来。
+
+然后选择：
+
+$$
+\boxed{
+\text{力最稳 + 轨迹最准 + 阻抗变化合理}
+}
+$$
+
+的一组阻抗。
+
+↓
+
+### ⑤ 执行第一组阻抗，然后重新测量
+
+$$
+a_k^*
+\rightarrow
+\text{机器人执行}
+\rightarrow
+\text{下一周期重新 MPC}
+$$
+
+---
+
+## 最简一句话
+
+**实际腹部凸阵探头按照医生需要做“垂直扫/肋缘下倾斜扫”；我们保留 T-RO 的“接触模型→机器人动力学→MPC预测”主链，只把不符合超声的球形接触模型换成已验证的 AuSoScan 圆柱–平面滑动软接触模型，再把 T-RO 的固定阻抗改成 MPC 在线选择 \(k_n,d_n,k_t,d_t\)；姿态仍按给定轨迹控制，第一版不加旋转阻抗。**
+
+这版已经没有之前的通用面积积分、CoP、Prony、LuGre、旋转阻抗等额外结构。后续应从这条**最小主线**开始逐项验证，而不是继续添加模块。
+
+[1]: https://www.ncbi.nlm.nih.gov/books/NBK534813/?report=reader "https://www.ncbi.nlm.nih.gov/books/NBK534813/?report=reader"
+[2]: https://arxiv.org/html/2606.05848v1 "https://arxiv.org/html/2606.05848v1"
+[3]: https://www.sciencedirect.com/science/article/pii/S0921889025000478 "https://www.sciencedirect.com/science/article/pii/S0921889025000478"
+[4]: https://journals.sagepub.com/doi/10.1177/02783649261441635 "https://journals.sagepub.com/doi/10.1177/02783649261441635"

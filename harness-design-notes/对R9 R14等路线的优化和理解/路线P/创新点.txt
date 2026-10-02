@@ -1,0 +1,31 @@
+现在论文 Contributions（贡献）最准确的版本就是：
+
+> **1. 提出一种面向连续机器人超声扫描的预测法向–切向变阻抗方法，根据未来探头–组织接触演化，而非仅当前力误差或当前组织状态，在线联合选择 \(k_n,k_t\)。**
+>
+> **2. 建立面向可变形滑动接触的闭环预测模型，使未来组织几何、接触刚度、摩擦和滑动变化能够通过闭环动力学直接影响阻抗选择，以及未来的力、失接触和滑移风险。**
+>
+> **3. 推导基于未来接触与闭环偏差敏感度的小规模约束 QP，在保留多步预测能力的同时实现在线法向–切向阻抗优化，并对候选动作进行完整非线性约束复验。**
+
+这三条与最新版 MD 的层级完全一致：**第 1 条是新能力，第 2 条是使该能力成立的闭环机理，第 3 条是使该机理可实时求解的算法形式。**
+
+
+当前 Method贡献是 **3 条**。
+
+1. **利用未来探头–组织接触状态，在线联合选择法向和切向阻抗。**
+   机器人超声领域已经有 variable impedance（变阻抗）：Duan 2022 已经在超声扫描中使用 optimization-based control（优化控制）和 variable impedance，阻抗增益来自医生示范；Beber 2024 已经把组织黏弹参数图、在线 stiffness QP（刚度 QP）、force/penetration constraints（力/压入约束）和 energy tank（能量罐）用于超声扫描；Fu 2024 也已经通过在线 QP 根据当前 force error（力误差）优化医疗扫描中的法向刚度。因此“超声 + 变阻抗”“组织模型驱动阻抗”“在线 QP 调刚度”都不能再算创新。
+   **但现有 closest priors（最近先前工作）没有利用预测的未来 probe-specific deformable normal–tangential contact（探头特定法向–切向可变形接触演化），在同一预测时域内联合决定 \(k_n,k_t\)。** Beber/Fu 都主要是当前点或当前力误差驱动的法向刚度调节，没有 future sliding-contact evolution（未来滑动接触演化）、\(k_t\) 决策和 horizon slip/contact-retention（时域滑移/接触保持）关系。
+   **所以这一条是当前 Method 最核心的目标领域贡献**：机器人不是等接触变化发生后再调刚度，而是利用即将发生的组织几何、变形、摩擦和滑动变化，提前联合选择法向与切向阻抗。
+
+2. **把未来软接触预测真正用于决定反馈阻抗，而不只是决定轨迹和接触力。**
+   更广的机器人领域已经有 predictive impedance（预测阻抗）和 model-predictive impedance control（模型预测阻抗控制），因此“预测未来再调阻抗”本身不能声称是新思想。当前 R15 也明确承认，现有 GP predictive impedance 和 MPVIC 已经能让 gains（增益）通过未来 interaction outcome（交互结果）、uncertainty（不确定性）和 constraints（约束）被优化。
+   当前方法真正新增的是：**把这些思想重新推导到连续超声的 deformable sliding contact（可变形滑动接触）中，让未来组织几何、接触刚度、摩擦和滑动状态通过 \(A_{cl}(k_n,k_t)\) 改变闭环偏差、协方差以及 force/slip/contact-retention/actuator margins（力/滑移/接触保持/执行器裕度），再直接决定 \(k_n,k_t\)。**
+   因此可以说：**建立了面向连续软组织扫描的 future-contact-conditioned closed-loop impedance formulation（未来接触条件化闭环阻抗公式）**；不能说“首次提出 predictive impedance”。
+
+3. **推导一个利用整段未来接触敏感度、但仍可在线求解的法向–切向阻抗 QP。**
+   超声和医疗接触领域已经有 QP：Duan 2022 有多目标 QP，Beber/Fu 已经有在线 stiffness QP，因此“QP 调刚度”绝对不能算创新。最新版 R15 也明确把 Fu 的小型 QP 当作成熟 realization（实现形式），而不是 novelty（创新）。
+   当前不同之处是，QP 的系数不是主要来自当前 force error，而是来自**整段 future deformable-contact rollout（未来可变形接触预测）和 closed-loop deviation（闭环偏差）对 \(k_n,k_t\) 的敏感度**。R15 显式递推 covariance/contact-margin sensitivity（协方差/接触裕度敏感度），再构造 future force、slip、contact retention、torque、gain/damping 和 energy constraints 对增益变化的 Jacobian，最终求解每节点只有两个刚度变量的小型约束 QP，并将候选动作重新代入完整 nonlinear model（非线性模型）验证。
+   **所以这一条可以作为具体的 algorithmic contribution（算法贡献）**：把复杂的未来软接触–阻抗耦合优化压缩为可实时求解的小规模阻抗子问题，同时不丢掉未来接触信息。
+
+至于之前的第 4 条 energy tank（能量罐），最新版 Method 的处理是对的：**不列为独立主创新。** Beber 2024 已经有 ultrasound VIC + tissue model + QP + tank，Fu 2025 T-RO 也已经明确考虑 stiffness variation（刚度变化）和 moving reference（移动参考）产生的能量。R15 只是进一步在 predicted deviation envelope（预测偏差包络）上保守计算这部分 modulation energy（调制能量），作为安全授权机制。除非后续得到明显超出现有 medical/ultrasound VIC 的新 robustness/passivity theorem（稳健性/无源性定理），否则不应升级成第 4 条独立贡献。
+
+

@@ -1,0 +1,1066 @@
+# ARIS method_design Root-Cause-driven v1 最终修改方案（冻结版）
+
+## 1. 文档用途
+
+本文是 ARIS `method_design` 方法设计模块重构的最终实施规格，供后续代码修改、测试、迁移和真实 E2E 验收直接使用。
+
+本次只实现并跑通 Root-Cause-driven Method Formation v1。representation-first、formal-generalization、measurement-first、capability-composition 等其他 Method-formation modes 不属于本次范围，后续另行扩展。
+
+本文描述目标状态，不保留讨论过程、已否决方案或兼容性叙事。除当前正式 E2E 的必要迁移步骤外，所有修改都应直接把 active path 改为最终语义。
+
+
+## 2. 总目标
+
+对 ARIS 执行 Method Design Scientific Core Replacement，使 Agent 在真实长任务中稳定执行已经确定的 Phase I 科研方法论，而不是只在 Prompt 或文档中出现高级概念、实际仍执行一次性 LLM brainstorming。
+
+最终方法必须同时满足：
+
+1. 问题驱动：从 accepted Problem、机制级 RCA 和 causal chains 自然推导，真正解除 Root Cause；
+2. 发表潜力：形成真实的 scientific/conceptual delta，而不是只有性能提升、模块堆叠或工程实现；
+3. Principle-first：先形成、比较和证伪/支持算法无关的 Solution Principles，再进入具体 Method；
+4. Evidence-driven：测试结果必须更新 Principle、假设、边界或 RCA，而不是只更新 performance 排名；
+5. 防止过早收敛：不得从 RCA 直接跳到第一个可行算法、已有技术名称或完整 A/B/C Method Routes。
+
+新版科研主线固定为：
+
+Problem / accepted RCA
+→ Required Mechanism Change
+→ Required Capability / Design Obligation
+→ Principle Search
+→ Candidate Principles
+→ Discriminating Predictions / Tests
+→ Human-approved Test Execution
+→ Evidence Update
+→ Principle Convergence
+→ Selected Principle
+→ Method Adaptation
+→ Minimal Faithful Realization
+→ Principle-only Closure Attempt
+→ Residual Mechanism / Adaptation Gaps
+→ Minimal Necessary Composition
+→ Final Scientific Delta Claim
+→ Final Novelty Review
+→ Human Acceptance
+→ User-initiated Full Causal Validation
+→ Established Scientific Delta
+
+Human Gate 前的核心科研对象必须是 Solution Principle、其关键假设、差异预测、测试方案和预计成本。为形成可执行、可判别的测试，`method_design` 可定义最小 test-only concrete realization 的规格、实施范围和成本；实际构建或运行须在该 execution set 获得 Human 批准后进行。
+
+Principle 收敛前，获批的最小具体实现只承担 operationalization / discriminating test 职责，不构成 Candidate Method、Method Adaptation、最终 backbone 或模块组合承诺。具体 Method 及其实现承诺在 Principle 经证据收敛后形成。
+
+
+## 3. 修改范围与边界
+
+### 3.1 必须修改
+
+1. `method_design` 的科研 contract、query context、生成逻辑、artifact schema、Validator 和正式语义审查；
+2. 旧 route Human Gate 到 Principle/Test Human Gate 的替换；
+3. 新增顶层 `principle_evaluation` phase 及其 Evidence Update、独立收敛审查和返回路径；
+4. Human 批准后的 test execution window、test handoff、结果提交和最小 test-cycle State；
+5. Candidate Principle/Test 的跨 cycle 科研历史及后续强制消费；
+6. `method_refinement` 的 Selected-Principle-first Method Adaptation；
+7. final novelty 的分层失败返回；
+8. Full Validation handoff、decision、feedback return 和 Established Scientific Delta；
+9. Controller、Validator、CLI、runtime assertions、workflow migration；
+10. active Skills、reviewer contracts、templates、mirrors/adapters、安装清单和 managed `.codex` runtime copies；
+11. 与新版 active workflow 直接冲突的 canonical 使用/安装文档段落；
+12. 当前 impedance-control E2E 的正式回退、通用 workflow suffix migration 和真实行为验收。
+
+### 3.2 保持不变
+
+1. Problem generation、problem quality、problem novelty 和 Problem Human Gate；
+2. Root Cause Analysis 方法论及独立 RCA Gate；
+3. accepted Field Map、Evidence Registry、source admission、paper reading、coverage review；
+4. Controller `scientific_core` 作为唯一 lifecycle authority；
+5. 现有 formal reviewer、Human Gate、return、archive/invalidation 的总体架构；
+6. 现有 Evidence Card 和 incremental literature gateway；
+7. 现有通用 artifact registration、review attestation、Human receipt/hash/stale 基础设施；本次不扩展，也不为本次重构专项删除；
+8. final human acceptance 和“只有用户主动启动 Full Validation”的边界；
+9. Full Causal Validation 的机制证据标准：performance-only 不能构成 `VALIDATED`。
+
+### 3.3 不实施
+
+1. `method_design` 内部嵌套状态机或第二套 Controller；
+2. 第二份 authoritative State；
+3. 新的 test-execution 顶层 phase；
+4. MCTS、beam search、Bayesian belief、GP surrogate、复杂候选树或大规模 archive；
+5. 固定 Candidate Principle 数量、综合评分公式或机械排名；
+6. 强制最终采用跨领域来源；
+7. 新实验平台或对现有 GPU/日志/物理实验基础设施的重建；
+8. legacy/new 双轨 scientific core；
+9. impedance-control 专用 migration 分支；
+10. 新权限、安全、防攻击、防篡改、防伪造或 crash/concurrency 协议；
+11. 与本目标无关的重构、清理、格式化或历史文档重写；
+12. 其他 Method-formation modes 或 generic future-mode dispatcher。
+
+
+## 4. 科研关系与 machine-resolvable binding
+
+新版 Method Design 必须建立并真实消费以下可机械解析关系：
+
+causal_chain_id
+→ mechanism_change_id
+→ capability_id / obligation_id
+→ candidate_principle_id + version
+→ assumption_id / prediction_id / test_id
+
+### 4.1 Required Mechanism Change
+
+每个 Required Mechanism Change 至少包含：
+
+- 稳定 `mechanism_change_id`；
+- 来源 `causal_chain_ids`；
+- 当前导致失败的关系、状态或信息结构；
+- 必须发生的机制改变；
+- 该改变为何能够解除 Root Cause；
+- 对应 Required Capabilities；
+- 对应 Design Obligations；
+- 可观察的 acceptance conditions。
+
+`Required Mechanism Change`、`Required Capability` 和 `Design Obligation` 不得只是三个并列 Markdown 标题。Validator 必须能解析其关系，`PRINCIPLE_SEARCH` query context 和后续 reasoning 必须实际消费该关系。
+
+### 4.2 Candidate Principle binding
+
+每个 Candidate Principle 必须引用其服务的：
+
+- `mechanism_change_ids`；
+- `capability_ids`；
+- `obligation_ids`；
+- `causal_chain_ids`。
+
+Selected Principle、Final Proposal 和 Full Validation obligations 必须能够沿此链回溯到 accepted RCA。
+
+### 4.3 Discriminating test 的多目标关系
+
+Test schema 必须支持同一个测试对应多个竞争 Principle 的不同预测，不得实现成一条单 Principle 自证链。
+
+最低关系为：
+
+test_id
+→ targets[]
+
+每个 target 至少包含：
+
+- `principle_id`；
+- `principle_version`；
+- `assumption_id`；
+- `prediction_id`；
+- `mechanism_change_id`；
+- `causal_chain_id`。
+
+允许某些 killer test 检查一个 Principle 相对 null/baseline 的致命假设，但 test set 必须覆盖仍然实质竞争的 Principles；不能把所有测试退化成逐个候选的确认性实验。无需新增图结构。
+
+
+## 5. 顶层 Workflow
+
+accepted root_cause_gate
+→ method_design
+→ principle_test_human_approval
+→ principle_evaluation
+→ method_refinement
+→ final_method_novelty_gate
+→ final_method_human_acceptance
+→ user-initiated Full Causal Validation
+
+只新增 `principle_evaluation` 一个顶层 scientific-core phase。重复测试通过现有 phase return/invalidation 再次经过 `method_design → Human Gate → principle_evaluation`，不建立内部 lifecycle。
+
+### 5.1 Phase 与 Gate 定义
+
+1. `method_design`
+   - 类型：formal reviewer Gate；
+   - 正常完成：Principle/Test packet 通过 semantic review；
+   - accepted verdict：`PRINCIPLE_PACKET_READY`；
+   - returns：`REVISE_PRINCIPLES → method_design`；`RCA_CONFLICT → root_cause_analysis`。
+
+2. `principle_test_human_approval`
+   - 类型：Human Gate；
+   - 正常完成：Human 批准完整 atomic execution set 及总成本；
+   - return：`request_revision → method_design`。
+
+3. `principle_evaluation`
+   - 类型：formal reviewer Gate；
+   - 正常完成：Evidence Update 通过 convergence review；
+   - accepted verdict：`PRINCIPLE_CONVERGED`；
+   - returns：`REVISE_EVALUATION → principle_evaluation`；`MORE_EVIDENCE → method_design`；`RCA_CONFLICT → root_cause_analysis`。
+
+4. `method_refinement`
+   - 类型：formal reviewer Gate；
+   - 正常完成：具体 Method 和 Final Scientific Delta Claim 通过最终方法审查；
+   - accepted verdict：`METHOD_READY`；
+   - returns：`REVISE/HOLD → method_refinement`；`RETHINK → method_design`；`RCA_CONFLICT → root_cause_analysis`。
+
+5. `final_method_novelty_gate`
+   - 类型：formal novelty Gate；
+   - accepted verdict：`NOVEL`；
+   - returns：method embodiment、claim formulation 或 adaptation 层失败使用 `REVISE_METHOD_DELTA → method_refinement`；Principle/Scientific Delta 层失败使用 `RETHINK_PRINCIPLE_DELTA → method_design`；只缺 novelty Evidence 或解释修订使用 `HOLD → final_method_novelty_gate`。
+
+6. `final_method_human_acceptance`
+   - 类型：Human Gate；
+   - 正常完成：Human 接受最终 Method；
+   - return：`request_revision → method_refinement`。
+
+
+## 6. method_design 的真实科研流程
+
+### 6.1 输入
+
+- accepted `ACTIVE_FIELD_MAP.md`；
+- active `RESEARCH_CONTRACT.md`；
+- active `PROBLEM_EVIDENCE_CAPSULE.md`；
+- accepted `ROOT_CAUSE_ANALYSIS.json/.md`；
+- accepted `ROOT_CAUSE_VERDICT.json`；
+- 当前可用的 landscape/incremental Evidence；
+- `METHOD_PRINCIPLES.jsonl` 和 `METHOD_TEST_EVIDENCE.jsonl` 中与当前科研上下文相关的全部跨-cycle历史记录；相关性通过既有 RMC、Principle/version、assumption、test、Evidence Update 和 return 关联解析；
+- 最近一次指向本 phase 的 reviewer guidance、Human feedback 或 Full Validation feedback。
+
+### 6.2 执行顺序
+
+RCA causal chains
+→ Required Mechanism Changes
+→ Required Capabilities
+→ Design Obligations
+→ Principle Search
+→ Candidate Principles
+→ critical unknowns / fatal assumptions
+→ target-domain testable operationalization
+→ Provisional Scientific Delta
+→ discriminating predictions
+→ cheapest informative / killer tests
+→ proposed atomic execution set and estimated cost
+
+### 6.3 Principle Search 必须真实覆盖
+
+对每个 Required Mechanism Change 主动检查：
+
+1. first-principles derivation；
+2. problem representation transformation；
+3. same-field mechanisms；
+4. cross-domain structurally-isomorphic problem–intervention pairs。
+
+跨领域搜索必须执行，但允许结论为“未发现可信同构”；不得强行制造 analogy 或强制采用跨领域候选。
+
+### 6.4 跨领域候选的最低记录
+
+- Source Problem；
+- Source Root Cause；
+- Source Intervention；
+- 被改变的关系、状态或信息结构；
+- Source Intervention → Mechanism Change → Outcome 的来源 Evidence；
+- 提取出的算法无关 Solution Principle；
+- Target–Source structural mapping；
+- causal direction；
+- activation/transfer conditions；
+- disanalogies；
+- transfer boundaries。
+
+### 6.5 Candidate Principle 最低内容
+
+- stable ID、version、parent version；
+- 算法无关 Principle 表达；
+- origin；
+- mechanism change/capability/obligation/causal-chain bindings；
+- 生效条件、干预和被改变的关键结构；
+- 为什么能够解除 Root Cause；
+- failure conditions；
+- critical unknowns/fatal assumptions；
+- target-domain operationalization；
+- Provisional Scientific Delta；
+- discriminating predictions；
+- proposed tests；
+- Evidence references；
+- active/revised/weakened/retired/rejected 的科研理由。
+
+Candidate 数量不机械固定，但 packet 必须说明为什么没有因第一个可行候选而过早关闭搜索。Candidate 差异必须是 Principle 差异，而不是参数、backbone 或模块名称差异。
+
+### 6.6 Provisional Scientific Delta
+
+回答：如果该 Principle 成立，它可能增加什么新的科学知识、机制、表示、边界或重要能力？
+
+Principle 的真实性/问题解决能力与 Scientific Delta 分别判断。Provisional Delta 较弱或暂时不存在，不得直接否定真实 Principle。
+
+### 6.7 输出
+
+- `idea-stage/METHOD_DESIGN_PACKET.json`；
+- `idea-stage/METHOD_DESIGN.md`；
+- `idea-stage/METHOD_DESIGN_REVIEW.json`；
+- 向两个 persistent ledgers 追加 proposal/review events。
+
+`METHOD_DESIGN_PACKET.json` 是当前 cycle 的科研 packet，不保存 phase status，不是第二份 State。
+
+### 6.8 Semantic review
+
+`independent_method_reviewer` 在本 Gate 必须判断：
+
+- Candidate 是否只是具体 Method 政名为 Principle；
+- RCA → RMC → Capability/Obligation → Principle 是否闭合；
+- Principle 间是否真正不同；
+- 跨领域 mapping 是否为结构同构而非表面 analogy；
+- source Evidence 是否支持所声称的机制；
+- assumptions、predictions 和 tests 是否有判别力；
+- Provisional Delta 是否诚实表达；
+- 是否发生 premature closure。
+
+Validator 只负责结构、ID、引用、关系和必要字段，不替代科研判断。
+
+
+## 7. Formal review request 的最终绑定时点
+
+现有 formal Gate 在 `start_phase` 时创建 review request，但 method phases 可能在 running 中合法完成 Evidence re-adoption 或 incremental literature search。若始终保留 phase-start inputs，现有 currentness 检查会使 review request stale。
+
+必须复用并最小扩展现有 `reviewed_artifacts_pending/refresh` 机制，统一以下顺序：
+
+start phase，创建尚未绑定 Main reviewed artifact 的 provisional request
+→ Main 完成当前 phase 合法的 Evidence 获取/re-adoption
+→ Main 写出被审查的核心 artifact
+→ Controller 确认没有 active incremental literature session
+→ Controller 以“当前 Controller-accepted inputs + 最终 reviewed artifact”刷新并封定正式 review bindings
+→ 才允许 dispatch independent reviewer
+→ reviewer 产出 verdict
+→ complete phase
+→ accept 或 return
+
+明确的 `reviewed_artifacts` 为：
+
+- `method_design`：`METHOD_DESIGN_PACKET.json`；
+- `principle_evaluation`：`PRINCIPLE_EVALUATION.json`；
+- `method_refinement`：`FINAL_PROPOSAL.md`。
+
+刷新必须发生在 reviewer 判断前，而不是只在 phase complete 后。reviewer dispatch 后若科研输入或 reviewed artifact 再发生变化，必须重新形成当前 request，不能让 reviewer 审查旧输入。实现可把现有内部 refresh 暴露为最小 Controller action/CLI；不得新增 review phase、reviewer 或平行审查系统。
+
+
+## 8. Human Gate 与 test cycle
+
+### 8.1 Atomic execution set
+
+`METHOD_DESIGN_PACKET.json` 定义唯一：
+
+- `cycle_id`；
+- `execution_set_id`；
+- test IDs 及其 `targets[]`；
+- 每项测试内容；
+- 每项预计资源；
+- 总成本；
+- `recommended_execution_set`。
+
+Human `approve` 表示批准整个 execution set。若需要增加、删除或更改测试，使用 `request_revision → method_design`，不增加 partial-approval UI。
+
+Human Gate 不选择 Principle，不声明 Principle 为真，也不成为 test execution 状态仓库。
+
+### 8.2 Controller 的最小 cycle contract
+
+Controller 必须在唯一 `scientific_core` State 中拥有足够信息，能够判定：
+
+- 当前 cycle 和已批准 execution set；
+- 哪些 tests 属于该 set；
+- 每个 test 是否已进入终态；
+- Evidence Context 是否已经形成；
+- 是否允许启动 `principle_evaluation`；
+- `REVISE_EVALUATION` 是否仍属于原 cycle；
+- `MORE_EVIDENCE` 是否开启新 cycle。
+
+具体 State 字段位置在实现时按现有结构选择最小方案，不要求把这些字段复制到 Human phase record。Ledgers 不承担 lifecycle authority。
+
+### 8.3 Pre-evaluation execution window
+
+Human 批准后：
+
+principle_evaluation = pending
+→ 按批准范围构建必要的最小 test-only concrete realization
+→ 执行并记录本轮 approved tests
+→ 所有 tests 进入终态
+→ Controller 形成 PRINCIPLE_EVIDENCE_CONTEXT
+→ 才暴露/允许 start principle_evaluation
+
+在 tests 未全部终态前，`start_phase` 不可用；正常流程仅允许读取批准 handoff、执行/提交本轮测试结果以及现有通用的必要用户操作。这是 phase sequencing，不是新权限或安全系统。
+
+### 8.4 Test outcome
+
+优先复用现有执行状态；若现有状态不能统一表达，method-test 层只规范化为：
+
+- `RESULT_AVAILABLE`；
+- `NO_RESULT` + reason。
+
+`NO_RESULT` reason 至少能区分 execution failed、unavailable、operationalization failed、user stopped。所有批准测试只要求进入终态，不要求都成功产生有效结果。
+
+
+## 9. method-test 薄编排层
+
+新增 `skills/method-test/SKILL.md` 及必要 active adapter/mirror。
+
+职责仅为：
+
+approved test handoff
+→ 读取 test targets、operationalization 和执行要求
+→ 调用现有计算执行能力或生成 physical-human handoff
+→ 收集 raw result 和 execution metadata
+→ submit-method-test-result
+
+它不得：
+
+- 决定 SUPPORT/REJECT；
+- 修改 Principle status；
+- 宣告 convergence；
+- 重建 GPU、日志、实验调度或物理实验平台。
+
+可复用现有 `run-experiment`、实验队列、日志和结果运输能力。科学解释由 `principle_evaluation` 完成。
+
+
+## 10. PRINCIPLE_EVIDENCE_CONTEXT
+
+`PRINCIPLE_EVIDENCE_CONTEXT` 是 cycle-scoped、Controller 形成的 evaluation pre-start input，不是 `principle_evaluation` 的普通 output，不保存 lifecycle，也不取代 ledgers。
+
+最低内容：
+
+- `cycle_id`；
+- active Candidate Principle IDs/versions；
+- test `targets[]`，即 test ↔ competing Principles ↔ assumptions ↔ predictions ↔ RMC/causal-chain 映射；
+- approved test IDs；
+- terminal outcomes 和 result records/paths；
+- 通过既有正式关联指向的历史 Evidence；
+- 当前可消费 Evidence 的来源/身份；
+- unresolved assumptions；
+- 必要的 execution/operationalization metadata。
+
+Controller 只机械收集已有正式关联，不判断哪些 Evidence 科研上 relevant，也不解释支持/反驳关系。
+
+### 10.1 Evidence currentness
+
+Ledger 中的历史 Evidence reference 只表示科研历史，不自动恢复当前使用资格。
+
+Evidence Context 只把以下内容标为当前可消费：
+
+- accepted landscape Evidence；
+- 当前 cycle 新产生的 Evidence；
+- 在当前 RMC/Capability/Obligation context 下通过现有 `readopt_evidence` 正式重新采用的历史 phase-scoped Evidence；
+- Controller 正式返回的 Full Validation result/evidence context。
+
+Migration 不自动批量 re-adopt Evidence，也不继承旧 Method Routes 对 Evidence 的解释。必须先进入新版 `method_design` 当前 context，形成 RMC/Capability/Obligation binding，再按需 re-adopt。
+
+### 10.2 Evaluation cycle 生命周期
+
+`REVISE_EVALUATION` 表示测试与 Evidence 不变，只修正 Main 的 interpretation/attribution/Evidence Update。
+
+因此：
+
+- 保留同一 cycle 和 terminal test results；
+- 不重新执行 tests；
+- `PRINCIPLE_EVIDENCE_CONTEXT` 不列为 evaluation produced artifact；
+- same-phase return 后，Controller 根据同一 cycle 重新生成/注册内容等价的 Context；
+- 然后才允许再次 start evaluation。
+
+`PRINCIPLE_EVIDENCE_CONTEXT` 的 active binding 仅属于当前 evaluation cycle。Controller 接受结束该 cycle 的 verdict、建立新 test cycle，或重新打开 Principle、RCA、Problem premise 时，必须通过现有 artifact registration 和 archive/invalidation 路径清除旧 active binding；历史记录仍保留在 ledgers 或既有 archive 中。该语义只允许对现有路径作必要的最小补充，不新增 lifecycle 系统。
+
+
+## 11. principle_evaluation
+
+### 11.1 输入
+
+- 当前 `PRINCIPLE_EVIDENCE_CONTEXT`；
+- Candidate Principle/Test packet；
+- 两个 ledgers 中与当前科研上下文相关的全部跨-cycle历史；
+- 最近一次相关 return feedback。
+
+### 11.2 Main 必须判断
+
+- operationalization fidelity；
+- test validity/discriminativeness；
+- activation conditions；
+- observations 相对各竞争 prediction 的含义；
+- Principle 应保留、扩展、修改、削弱、合并还是淘汰；
+- Evidence 是否暴露 RCA/causal-premise conflict。
+
+`NO_RESULT` 不能支持或反驳 Principle，但可以暴露 operationalization、feasibility 或 test-design 问题。
+
+### 11.3 输出
+
+- `idea-stage/PRINCIPLE_EVALUATION.json`；
+- `idea-stage/PRINCIPLE_EVALUATION_VERDICT.json`；
+- 向 Principle/Test ledgers 追加 Evidence Update 和 decision events。
+
+### 11.4 Convergence review
+
+`independent_method_reviewer` 的 convergence rubric 必须要求同时满足：
+
+1. 选中版本满足算法无关 Solution Principle 定义；
+2. 关键 fatal assumptions 已有有效判别 Evidence，或剩余不确定性不会推翻当前限定 Claim；
+3. operationalization fidelity、test validity 和 activation conditions 已检查；
+4. 所有实质竞争 Principles 已被淘汰、削弱、合并，或其剩余不可区分性不会改变当前 Claim、适用边界和 Method Adaptation 选择；
+5. 不存在未处理的 RCA/causal-premise conflict；
+6. Evidence 足以支持进入 Method Adaptation，但不宣称 Principle 已被普遍证明。
+
+任何失败后会推翻 Principle 或核心 Claim 的未验证致命假设，都不允许 `PRINCIPLE_CONVERGED`。
+
+### 11.5 Selected Principle 的物化
+
+`PRINCIPLE_CONVERGED` verdict 必须明确返回唯一 `selected_principle_id/version`。
+
+`SELECTED_PRINCIPLE.yaml` 不由 Main 提前写成普通 evaluation output。只有 convergence reviewer verdict 被 Controller 正式接受后，Controller 才从已审查 Candidate version 机械物化并注册该 artifact。
+
+其最低内容：
+
+- selected Principle ID/version；
+- Problem/RCA/causal-chain binding；
+- RMC、capability 和 obligation bindings；
+- evidence closure；
+- valid/activation conditions；
+- failure conditions和适用边界；
+- remaining uncertainty。
+
+`SELECTED_PRINCIPLE.yaml` 在仍接受同一 Principle 的 method-level revision 中保持 active，包括 `method_refinement` 修订、method-level novelty return、final Human `request_revision` 和 `METHOD_REFINEMENT_REQUIRED`。重新打开 Principle、RCA 或 Problem premise 的路径必须通过现有 archive/invalidation 使其失效，包括 Principle rethink/rejection、`SELECTED_PRINCIPLE_REJECTED`、`ROOT_CAUSE_REJECTED` 和 `PROBLEM_PREMISE_REJECTED`。只对现有有序 phase reset 和 artifact invalidation 作实现该语义所需的最小补充。
+
+
+## 12. Persistent Principle/Test ledgers
+
+### 12.1 METHOD_PRINCIPLES.jsonl
+
+跨 cycle 追加记录：
+
+- Principle ID/version/parent version；
+- proposal/revision；
+- supporting/conflicting Evidence links；
+- weakened/merged/retired/rejected reason；
+- convergence/selection；
+- Full Validation rejection/update。
+
+### 12.2 METHOD_TEST_EVIDENCE.jsonl
+
+跨 cycle 追加记录：
+
+- test proposal；
+- approved execution-set binding；
+- execution handoff；
+- terminal outcome/raw-result reference；
+- operationalization/test-validity/activation assessment；
+- Evidence Update；
+- resulting Principle decision。
+
+### 12.3 生命周期约束
+
+- 两个 ledgers 由 Controller action 追加；
+- 不列入任何普通 phase 的 `produced_artifacts`；
+- 不受 `_return_to_phase()` 普通 output archive/invalidation 影响；
+- 不保存 `current_phase/pending/running` 等 lifecycle；
+- 下一轮 `method_design` 和 `principle_evaluation` 必须读取与当前科研上下文相关的全部跨-cycle历史；
+- `cycle_id` 只界定本轮 approval、execution 和 Evidence Context，不过滤 Principle/Test 科学历史；Controller 通过既有 ID/版本/return 关联机械汇集，Main 和 reviewer 判断其科学含义；
+- ledger 保存历史不等于 Evidence 自动 current；
+- Controller State 仍是唯一 lifecycle authority。
+
+
+## 13. Return feedback 的正式消费
+
+复用现有 `return_history`、`return_guidance`、`human_feedback`、`validation_result_id` 和 validation result records，不新增 feedback phase 或平行 artifact 系统。
+
+Controller 必须为当前目标 phase 解析最近一次相关 return，并作为执行上下文暴露给 Main/reviewer。对应 Skill contract 必须强制消费：
+
+- `REVISE_PRINCIPLES`：消费 semantic reviewer 的具体问题；
+- Human `request_revision`：消费 Human 对 test set/cost 的修改意见；
+- `REVISE_EVALUATION`：消费 convergence reviewer 对同一 Evidence 解释的修订要求；
+- `RCA_CONFLICT`：RCA 消费关联 Evidence IDs/result paths 和机制冲突；
+- `RETHINK` 或 Principle-level novelty failure：method design 消费具体失败层和反证；
+- validation return：目标 phase 消费对应 validation result 和 Evidence。
+
+返回不能只改变 `current_phase`；下一轮科研 reasoning 必须实际读取 feedback，避免重复生成相同候选或忽略反证。
+
+
+## 14. method_refinement
+
+### 14.1 输入
+
+- accepted `SELECTED_PRINCIPLE.yaml`；
+- active Research Contract、RCA 和 verdict；
+- Field Map；
+- 当前可用 Evidence；
+- 与本 phase 相关的 return/validation feedback。
+
+### 14.2 科研逻辑
+
+Selected Principle
+→ target-domain adaptation
+→ minimal faithful realization
+→ principle-only closure attempt
+→ residual mechanism/adaptation gaps
+→ minimal necessary supporting mechanisms
+→ Final Scientific Delta Claim
+→ claim-validation obligations
+→ FINAL_PROPOSAL
+
+不再使用 `dominant_solution` 或 `dominant_only_closure` 作为正式科学抽象。保留的科研原则是：先尝试对 Selected Principle 的最小忠实独立实现，只为真实残余缺口加入最小必要机制。
+
+### 14.3 Adaptation-gap literature search
+
+只允许在 Selected Principle 的 target adaptation 已暴露明确 residual gap 后执行 `ADAPTATION_GAP_SEARCH`。复用现有 incremental literature gateway，不建立新检索系统。
+
+如果该搜索或 Evidence re-adoption 发生在 phase running 中，必须在完成后按第 7 节重新封定当前 review bindings，再 dispatch final method reviewer。
+
+### 14.4 输出
+
+- `refine-logs/FINAL_PROPOSAL.md`；
+- final method review verdict及现有必要 refine state；
+- claim-validation obligations。
+
+### 14.5 Final Scientific Delta Claim
+
+`method_refinement` 阶段只能形成待 Full Validation 证实的 Final Scientific Delta Claim，不得表述为已经建立的科学事实。
+
+阶段语义统一为：
+
+- `method_design`：Provisional Scientific Delta；
+- `method_refinement`：Final Scientific Delta Claim；
+- Full Validation = `VALIDATED`：Established Scientific Delta。
+
+
+## 15. Final novelty 与 Human acceptance
+
+保留现有 `final_method_novelty_gate` 和 `final_method_human_acceptance` 顶层位置。
+
+Final novelty reviewer 必须区分失败层：
+
+- Principle 仍成立，但 adaptation、claim、边界或 concrete realization 的 novelty 不足：返回 `method_refinement`；
+- 失败位于 Principle/Scientific Delta 层：返回 `method_design`；
+- 只缺 novelty Evidence 或解释修订：留在 novelty Gate。
+
+不得把所有 `UNCERTAIN/NOT_NOVEL/BLOCKED` 无差别返回 `method_design`，也不得把 method-level novelty failure 等同于 Principle 为假。
+
+Human acceptance 只接受或要求修订最终 Method，不重新充当 Principle selection Gate。Human acceptance 不自动启动 Full Validation。
+
+
+## 16. Full Causal Validation
+
+### 16.1 Handoff
+
+删除 Full Validation active path 对以下内容的依赖：
+
+- `METHOD_ROUTES.*`；
+- `SELECTED_ROUTE.yaml`；
+- selected-route MUST closure；
+- `METHOD_ROUTE_REJECTED`。
+
+新版 Controller validation handoff 消费：
+
+- accepted Research Contract；
+- accepted Root Cause Analysis/verdict；
+- accepted `SELECTED_PRINCIPLE.yaml`；
+- accepted `FINAL_PROPOSAL.md`；
+- final novelty verdict；
+- final Human report。
+
+Validation obligations 从 Selected Principle 和 Final Proposal 恢复：
+
+- causal chains；
+- Required Mechanism Changes；
+- Required Capabilities/Design Obligations；
+- selected Principle intervention；
+- core method changes；
+- predicted mechanism changes；
+- failure conditions和适用边界；
+- Final Scientific Delta Claim；
+- claim-validation obligations。
+
+### 16.2 Decisions
+
+- `VALIDATED`；
+- `METHOD_REFINEMENT_REQUIRED → method_refinement`；
+- `SELECTED_PRINCIPLE_REJECTED → method_design`；
+- `ROOT_CAUSE_REJECTED → root_cause_analysis`；
+- `PROBLEM_PREMISE_REJECTED → problem_generation`。
+
+### 16.3 VALIDATED 标准
+
+继续要求：
+
+predicted mechanism change
+→ observed mechanism change
+→ discriminating evidence
+→ performance consequence
+
+Performance improvement 本身不能构成 `VALIDATED`。Validation 必须覆盖 Selected Principle 和 Final Proposal 声明的 causal chains、RMC、核心 obligations 和 claim-validation obligations。
+
+Validation result 在 `VALIDATED` 时必须记录：
+
+- 实际被机制 Evidence 支持的 claim elements；
+- 有效范围和 applicability boundaries；
+- 保留的限制和未解决不确定性；
+- `Established Scientific Delta`。
+
+### 16.4 Validation feedback return
+
+复用现有 `validation_results + return_history.validation_result_id`：
+
+- `METHOD_REFINEMENT_REQUIRED`：refinement 消费 validation result、Evidence 和上一版 proposal；
+- `SELECTED_PRINCIPLE_REJECTED`：向 Principle ledger 追加 rejection/update，下一轮 design 必须消费；
+- `ROOT_CAUSE_REJECTED`：RCA 消费机制冲突和反证；
+- `PROBLEM_PREMISE_REJECTED`：problem revision context 消费对问题前提的否定 Evidence。
+
+
+## 17. Artifact 清单与权威关系
+
+1. Controller `scientific_core`
+   - 唯一 lifecycle authority；
+   - 管 current phase、phase status、当前 approved execution set、return 和 validation entry。
+
+2. `METHOD_DESIGN_PACKET.json`
+   - 当前 cycle 的 Candidate Principle/Test packet；
+   - phase artifact，可随 cycle return 失效/归档。
+
+3. `METHOD_DESIGN.md`
+   - Human-readable deterministic view；
+   - 与 packet 内容一致，不引入独立科学判断。
+
+4. `METHOD_DESIGN_REVIEW.json`
+   - Principle packet semantic review verdict。
+
+5. `METHOD_PRINCIPLES.jsonl`
+   - 跨 cycle 科研历史，不保存 lifecycle。
+
+6. `METHOD_TEST_EVIDENCE.jsonl`
+   - 跨 cycle test/evidence 历史，不保存 lifecycle。
+
+7. method-test handoff
+   - Controller 提供的当前批准 execution set 只读执行契约。
+
+8. `PRINCIPLE_EVIDENCE_CONTEXT`
+   - evaluation pre-start input；同 cycle revision 可等价重建。
+
+9. `PRINCIPLE_EVALUATION.json`
+   - Main 对本轮 Evidence 的科学解释和 Principle updates。
+
+10. `PRINCIPLE_EVALUATION_VERDICT.json`
+    - independent convergence review verdict。
+
+11. `SELECTED_PRINCIPLE.yaml`
+    - convergence accepted 后由 Controller 物化的稳定 adaptation handoff。
+
+12. `FINAL_PROPOSAL.md`
+    - 具体 Method、Final Scientific Delta Claim 和 validation obligations。
+
+13. Validation Result
+    - Full Validation judgment；只有 `VALIDATED` 可记录 Established Scientific Delta。
+
+
+## 18. 具体实现修改范围
+
+### 18.1 Controller/runtime
+
+核心修改：
+
+- `arisctl/controller.py`；
+- `arisctl/validators.py`；
+- `arisctl/__main__.py`；
+- `tools/run_state.py`；
+- `skills/shared-references/idea-workflow.yaml`。
+
+修改内容限于：
+
+- 新 phase/gate/verdict/return contracts；
+- RMC machine-resolvable binding；
+- Principle/Test artifacts和 ledgers；
+- atomic execution-set approval；
+- pending test window、handoff和结果提交；
+- Evidence Context；
+- return feedback exposure；
+- review request 的最终绑定时点；
+- accepted convergence 后物化/失效 Selected Principle；
+- query modes和 adaptation-gap search；
+- Full Validation handoff/decisions/delta；
+- executed-prefix-compatible suffix migration。
+
+若现有 workflow loader、通用 approval receipt、review attestation、artifact registration 已支持目标，不修改。
+
+### 18.2 Scientific contracts/Skills
+
+必须检查并按 active 语义定点修改：
+
+- `skills/shared-references/method-design-contract.md`；
+- `skills/shared-references/method-refinement-protocol.md`；
+- `skills/idea-creator/SKILL.md` 的 method mode；
+- `skills/idea-discovery/SKILL.md`；
+- `skills/research-pipeline/SKILL.md`；
+- `skills/research-refine-pipeline/SKILL.md`；
+- `skills/research-refine/SKILL.md`；
+- `skills/research-review/SKILL.md`；
+- `skills/novelty-check/SKILL.md`；
+- `skills/result-to-claim/SKILL.md`；
+- `skills/experiment-plan/SKILL.md`；
+- `skills/shared-references/idea-output-composition.md`；
+- `skills/shared-references/idea-wiki-integration.md`；
+- problem/RCA contracts 中直接受影响的 downstream handoff和 validation-return feedback；
+- 新增 `skills/method-test/SKILL.md`。
+
+Problem generation和 RCA 方法论正文不重构，只修改被新版 downstream handoff/return 直接影响的接口。
+
+### 18.3 Reviewer configs
+
+- `.codex/agents/independent_method_reviewer.toml`；
+- `.codex/agents/independent_novelty_reviewer.toml` 的 final-method rubric；
+- `.codex/agents/result_to_claim_reviewer.toml`。
+
+`independent_method_reviewer` 保持一个角色，但按 Controller 声明的 `phase + gate` 执行三种 rubric：Principle packet、Principle convergence、final method。每类使用自己的输入、rubric和 verdict enum。不得让 reviewer 自选模式，也不增加重复 `review_type` State 字段。
+
+### 18.4 Templates
+
+- `templates/METHOD_PROPOSAL_TEMPLATE.md`；
+- 与 IDEA_REPORT、validation handoff 直接相关的模板。
+
+### 18.5 Installation、mirrors和 managed runtime
+
+- active Codex/Claude/Gemini mirrors/adapters；
+- `tools/skill-groups.tsv`；
+- skill inventory；
+- mirror/install tests；
+- E2E managed `.codex` reviewer/config copies和 Controller-layer manifest。
+
+不得只修改 ARIS source 而遗漏真实 E2E 使用的 managed runtime layer。
+
+### 18.6 Canonical 文档
+
+只定点修改直接声明 canonical workflow/install contract 且修改后会与真实 Harness 不一致的段落，例如：
+
+- `README.md`；
+- `README_CN.md`；
+- `RESEARCH_HANDOFF_CN.md`；
+- `docs/SKILLS_CATALOG.md`。
+
+这些是 canonical 使用/安装文档，不是 Controller runtime。不得做 README 全局术语清理，也不修改历史 changelog/archive。
+
+
+## 19. 旧 scientific core 的 active-path 清理
+
+新版 active execution path 不再依赖：
+
+- `METHOD_ROUTES.*`；
+- `SELECTED_ROUTE.yaml`；
+- `route_human_selection`；
+- `route_selection`；
+- `validate_method_routes`；
+- `validate_selected_route`；
+- `dominant_solution`；
+- `dominant_only_closure`；
+- `DOMINANT_SOLUTION_SEARCH`；
+- method-design `RESIDUAL_MUST_GAP_SEARCH`；
+- `METHOD_ROUTE_REJECTED`；
+- route-specific validation handoff和 obligation recovery。
+
+只清理这些术语作为旧 Method Design 科学模型的 active 使用。Literature retrieval route、problem discovery route、一般 workflow route、论文 dominant contribution 等其他语义不机械替换。历史 artifact、archive和 changelog 保持原样。
+
+
+## 20. Workflow migration
+
+### 20.1 兼容原则
+
+通用 migration 的兼容判据为：
+
+- 已执行 prefix 的 phase 语义、依赖和它实际使用的 artifact mappings 必须保持一致；
+- 未执行 suffix、suffix 使用的 artifact manifest entries 和 canonical workflow identity 可以随新版 workflow 改变；
+- 不要求整个旧/新 `artifact_manifest` 相等；只要求 executed prefix 实际引用的 mappings 不变；
+- 不得为绕过检查继续冒用旧 `workflow_id`。
+
+### 20.2 Migration 行为
+
+- 保留 executed prefix phase records、accepted artifacts、return history和 Evidence；
+- 删除旧 pending suffix phase records；
+- 按新版 canonical workflow 创建完整 pending suffix；
+- 不伪造任何新 phase 已执行；
+- 更新 stored workflow snapshot；
+- 更新 `state.workflow.workflow_id` 和 `workflow_sha256`；
+- 将 `scientific_core.current_phase` 设置为新版 `method_design`；
+- 记录 from/to workflow identity、hash和被替换 suffix。
+
+不增加当前 E2E 专用 migration，也不直接编辑 formal State。
+
+
+## 21. 当前 impedance-control E2E 的迁移
+
+当前权威 Controller 状态是：
+
+ACTIVE
+current_phase = route_human_selection
+method_design = done
+route_human_selection = pending
+workflow = idea-discovery-v2
+
+严格按以下顺序执行：
+
+1. 在升级 ARIS 前，由用户在旧 `route_human_selection` Human Gate 正式执行 `request_revision`；
+2. 通过现有 Controller 返回旧 `method_design / pending`；
+3. 验证旧 `METHOD_ROUTES.*` 已归档并从 active accepted artifacts 移除；
+4. 验证 accepted Field Map、Problem、Evidence、RCA和 RCA verdict 保持有效；
+5. 修改 ARIS source、contracts、runtime、reviewer configs、Skills、mirrors和 tests；
+6. 通过现有安装/更新机制刷新 E2E managed `.codex` layer和 manifest；
+7. 执行通用 executed-prefix-compatible workflow migration；
+8. 验证 executed prefix 保留、新 pending suffix 完整、workflow identity 已更新；
+9. 从新版 `method_design` 开始；
+10. 建立当前 RMC/Capability/Obligation/Principle Search context 后，按需正式 re-adopt 仍相关的历史 method Evidence；
+11. migration 和 State 核验成功后再更新 `CURRENT_CONTINUATION.md`。
+
+旧 A/B/C Method Routes 不转换为 Candidate Principles。不重跑已接受的 landscape、Problem、Problem Gates或 RCA，也不继承旧 Route 对 Evidence 和方法选择的判断。
+
+
+## 22. 实施顺序
+
+1. 旧 Human Gate 正式 `request_revision`，确认 E2E 回到旧 `method_design / pending`；
+2. 更新 canonical workflow、artifact contracts/schema、phase/gate/verdict/return contracts；
+3. 实现 Controller、Validator、CLI/runtime assertions，以及与执行路径直接相关的 State、Gate、return、artifact lifecycle、test cycle、review binding、ledgers、Selected Principle 和 validation changes；
+4. 更新 Scientific contracts、active Skills、`method-test` Skill及直接相关 templates；
+5. 更新 reviewer configs / reviewer rubrics；
+6. 更新 mirrors/adapters、inventory/install metadata及必要 canonical docs；
+7. 完成 unit / contract / integration / regression tests，并执行 active-path 定向扫描；
+8. 刷新 E2E managed `.codex` layer和 manifest；
+9. 执行通用 workflow suffix migration；
+10. 从真实 RCA 启动新版 impedance-control Method Design E2E；
+11. 以真实 Evidence Update 验收后更新 continuation文档。
+
+任何步骤发现真实实现与本规格直接冲突时，只做解除该冲突所需的最小修改；不得借机扩展架构。
+
+
+## 23. 验收标准
+
+### 23.1 科研逻辑验收
+
+1. RCA 后首先形成 machine-resolvable Required Mechanism Changes；
+2. `RCA → RMC → Capability/Obligation → Principle` 被 query context和后续 reasoning 实际消费；
+3. Human Gate 前输出算法无关 Candidate Principles，以及为可执行测试所需的最小 test-only concrete realization 规格；
+4. 第一性原理、表示变换、同领域和跨领域同构检查均有正式记录；
+5. 跨领域候选包含来源 Evidence、结构映射、因果方向、生效条件、失配和边界；
+6. Candidate 差异是 Principle 差异，而不是参数或模块差异；
+7. 每个关键 Candidate 有 fatal assumptions、operationalization、Provisional Delta和可区分预测；
+8. test schema 支持一个 test 对多个竞争 Principles 的不同 predictions；
+9. Evidence Update 改变科学认识，不只比较 performance；
+10. Human 批准后、Principle 收敛前的最小具体实现只用于 operationalization / discriminating test；Method Adaptation 和最终实现承诺在收敛后形成；
+11. residual gap和 minimal composition 只发生在 Method Adaptation；
+12. Final Scientific Delta Claim 与 Established Scientific Delta 的阶段语义无混用。
+
+### 23.2 Workflow/Controller 验收
+
+1. `PRINCIPLE_PACKET_READY` 正常进入 Human Gate；
+2. `REVISE_PRINCIPLES` 同 phase 修订并消费 reviewer feedback；
+3. Human approval 前正常流程不能执行 test或提交结果；
+4. Human approval 精确对应一个 atomic execution set；
+5. `principle_evaluation / pending` 只执行该批准集合；
+6. `RESULT_AVAILABLE` 和 `NO_RESULT + reason` 均能使 test 进入终态；
+7. tests 未全部终态时不能 start evaluation；
+8. Evidence Context 覆盖 active Candidate 集合和多目标 prediction mapping；
+9. Controller 只机械收集已关联 Evidence，不替代 scientific interpretation；
+10. running 中合法新增/re-adopt Evidence 后，正式 review request 能在 reviewer 前绑定当前 inputs和 reviewed artifact；
+11. `REVISE_EVALUATION` 保留同一 test cycle/results、等价重建 Context且不执行新 test；
+12. evaluation cycle 结束、新 cycle 建立或 Principle/RCA/Problem premise 重开时，旧 Evidence Context 不再 active；
+13. `MORE_EVIDENCE` 返回 design、建立新 cycle并重新经过 Human Gate；
+14. persistent ledgers 跨 return 保留，相关跨-cycle Principle/Test 历史被后续 design/evaluation 消费，但不成为 lifecycle State；
+15. historical Evidence 不自动恢复 currentness；
+16. `RCA_CONFLICT` 把关联 Evidence和 feedback 返回 RCA并被实际消费；
+17. `PRINCIPLE_CONVERGED` 必须提供唯一 Principle ID/version；
+18. Selected Principle 只在 accepted convergence 后由 Controller 产生；
+19. Selected Principle 在接受同一 Principle 的 method-level revision 中保持 active，重新打开 Principle/RCA/Problem premise 时失效；
+20. method refinement running 中的 adaptation-gap search 完成后能形成当前 final review bindings；
+21. final novelty 按失败层级返回，不把 method-level failure 等同 Principle rejection；
+22. Full Validation 不再依赖 route artifacts；
+23. Validation reject 后，result/Evidence被返回目标 phase 实际消费；
+24. `Established Scientific Delta` 只在 `VALIDATED` 后出现；
+25. workflow migration 保留 accepted prefix、重建新版 suffix并更新真实 workflow identity。
+
+### 23.3 Active-path 清理验收
+
+对 runtime、workflow、Validators、active Skills、reviewer configs、templates、mirrors和 managed E2E layer 执行定向搜索，确认旧 Method Design 模型不再被 active consumer 引用。
+
+不得以删除历史 archive/changelog中的旧词为通过条件；也不得误删其他语义的 route/dominant。
+
+### 23.4 修改边界验收
+
+通过现有非 Method Design regression tests，确认：
+
+- literature workflow不变；
+- Problem generation/quality/novelty/Human Gate不变；
+- RCA methodology和 Gate不变；
+- 通用 Human receipt、review attestation、artifact registration和 validation user-initiation边界不变；
+- 没有新增安全系统、第二状态机、兼容分支或无关重构。
+
+
+## 24. 验证方式
+
+### 24.1 Contract/Validator tests
+
+至少覆盖：
+
+- RMC binding完整和断链失败；
+- Candidate Principle定义、version/lineage和 RCA binding；
+- test `targets[]` 多 Principle映射；
+- cross-domain search记录和 Evidence reference；
+- execution-set cost/test identity；
+- terminal result与批准 test对应；
+- invalid/no-result不能机械 reject Principle；
+- convergence criteria和唯一 selected ID/version；
+- Final Proposal/Validation obligation recovery。
+
+### 24.2 Controller unit/integration tests
+
+至少覆盖：
+
+- Human approval前 test action不可用；
+- Human approval后、Principle收敛前的 test-only concrete realization 受批准 execution set 约束且不形成 Method承诺；
+- atomic execution set approval/revision；
+- pending execution window和全部终态条件；
+- Evidence Context生成；
+- running Evidence变化后的 review binding refresh；
+- reviewer审查的确切 Main artifact；
+- `REVISE_EVALUATION`不重新测试且同 cycle Context等价重建；
+- evaluation cycle退出、新 cycle和 Principle/RCA/Problem premise重开时旧 Context解除 active binding；
+- `MORE_EVIDENCE`新 cycle和重复 Human Gate；
+- RCA return和 feedback消费；
+- ledgers不被普通 return归档；
+- 当前科研上下文相关的跨-cycle Principle/Test历史被 design/evaluation消费，且不自动成为 current Evidence；
+- acceptance-time Selected Principle物化、同 Principle method-level revision保留，以及 Principle/RCA/Problem premise重开时失效；
+- adaptation-gap Evidence后 final review；
+- novelty分层返回；
+- Full Validation五种 decision；
+- Validation feedback回流；
+- executed-prefix-compatible migration允许新 workflow identity/新 suffix manifest，同时拒绝 executed prefix语义变化；
+- migration真实重建 `state["phases"]` pending suffix。
+
+### 24.3 Installation/mirror tests
+
+验证：
+
+- `method-test` 可被发现、安装和镜像；
+- reviewer configs和 active mirrors一致；
+- E2E managed `.codex` layer由现有安装机制更新；
+- inventory、manifest和 runtime role copies一致。
+
+### 24.4 真实 impedance-control E2E
+
+至少真实完成一次：
+
+accepted RCA
+→ RMC/Capability/Obligation
+→ Candidate Principles
+→ independent Principle review
+→ Human-approved execution set
+→ 至少一个真实 terminal test result
+→ Evidence Context
+→ Principle Evaluation
+→ Candidate 被支持、削弱、修订、合并、淘汰或明确 `MORE_EVIDENCE`
+→ 下一科研阶段实际消费该更新
+
+真实 E2E 不强制制造 `RCA_CONFLICT`、`NO_RESULT`、`REVISE_EVALUATION` 或 `PRINCIPLE_CONVERGED`；未自然发生的固定分支由集成测试覆盖。不得为了通过验收伪造 Principle convergence、Method success或 Established Scientific Delta。
+
+只有真实 Evidence Update 确实改变后续科研判断，才能证明新版没有退化为普通 brainstorming。
+
+### 24.5 最终核验记录
+
+实施完成后记录：
+
+- 全量相关测试命令与结果；
+- active-path旧依赖扫描结果；
+- migration from/to workflow identity和 suffix重建结果；
+- E2E State、allowed actions和关键 artifact清单；
+- 真实 Evidence Update如何被下一阶段消费；
+- 未执行或失败项及其对验收的影响。
+
+
+## 25. 冻结约束
+
+本方案在编码前冻结。后续只有以下事实允许修改：
+
+1. 实际编码发现真实 ARIS 代码与本规格存在直接、可复现、会阻断正常流程的冲突；
+2. 真实 impedance-control E2E 暴露正常科研路径无法继续的断链；
+3. 某项规定被证明会改变已明确要求保持不变的上游/通用行为。
+
+“可能更安全、可能更通用、未来也许有用、工程上更漂亮”均不构成扩大范围的理由。任何必要调整继续遵守 Surgical editing、Minimal sufficient change和 Target-state editing。

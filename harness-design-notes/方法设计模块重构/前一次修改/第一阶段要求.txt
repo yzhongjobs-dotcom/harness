@@ -1,0 +1,105 @@
+# 首先，我明确本窗口的整体要求 / 核心准则：
+
+## 总目标
+
+优化 ARIS Harness 的 `method_design` 模块，使其能够生成符合顶会顶刊标准的研究方法。
+
+## 当前讨论范围
+
+当前只讨论方法设计本身的科研逻辑，暂不讨论 Harness、Skill、Prompt、Validator、Gate、状态机和自动化实现。
+
+## 方法设计的双重目标
+
+最终方法需要同时满足：
+
+- **问题驱动**：真正解决研究问题，并能从研究问题及其关键机制中自然产生；
+- **发表潜力**：具备顶会顶刊层面的创新性和发表价值。
+
+讨论中不能只追求问题解决而得到纯工程化方案，也不能为了创新而使方法脱离研究问题。
+
+同时，不能因为方法借鉴了已有工作、改动较小或实际新颖性有限，就过早否定一个能够有效解决研究问题的方法（因为包装创新点是顶会顶刊很常用的方法，但它只是不属于当前模块的讨论重点）。而且，我稍微提醒一句：academic-research-suite 等 Skill 的目标与我的目标不完全重叠，我的目标是发顶会顶刊，考虑科研方法优劣和包装创新点，而 Skill 可能考虑不全、甚至连科研本身都不全。
+
+## 本任务基本流程
+
+1. 梳理我的经验；
+2. 找对应的公开方法论，包括顶级研究者公开讲过的 research taste / problem solving 方法，以及相关热门 Skill；
+3. 逆向分析一批近年 RSS / CoRL / ICRA Best Paper / T-RO / IJRR / Nature Machine Intelligence 等代表性工作的方法究竟是怎样从 **Problem → Insight → Principle → Method** 生长出来的，包括创新点如何借鉴、结合或迁移本领域不同细分方向及其他领域的思想或方法，以及这些工作如何使方法既显得新颖，又像是从问题中自然生长出来；
+4. 综合上述结果，提炼 Method Design 模块。
+
+## 当前进度
+
+第 1 步已经完成，D:\桌面\科研Agent Harness设计\harness-design-notes\对创新方法设计的补充-专业版.txt 即为我的经验总结。
+
+当前准备进入第 2 步：
+
+> **寻找并分析对应的公开科研方法论和热门 Skill。**
+
+在完成第 2、3 步之前，不提前确定最终 Method Design 的科研逻辑。
+
+先不执行任务，而是明确当前目标和标准
+
+---
+
+请注意，当前重构方法设计模块分为两个阶段：
+
+### 阶段 1：Methodology Design
+
+目标是回答：
+
+> **一个顶级研究者应该如何真正产生方法？**
+
+现在只研究科研认知逻辑，包括：
+
+- 如何从 Problem / Root Cause 进入方法搜索；
+- 如何做跨领域问题同构识别；
+- 如何提取来源方法的 solution principle；
+- 如何产生非显然 Insight；
+- 如何避免第一个可行解导致过早收敛；
+- 如何判断迁移是 scientific contribution 还是工程应用；
+- 如何用证据淘汰错误的 Insight / Principle / Method。
+
+这一阶段的产物应该是**科研方法论本身**，不考虑 Agent、Prompt、状态机和 schema。
+
+---
+
+### 阶段 2：Harness Design
+
+目标完全不同：
+
+> **怎样让 Agent 在真实长任务中稳定执行上述方法论，而不是“提示词里写了，但实际没有发生”。**
+
+这里才需要大量吸收现有 Skill/Harness 的工程经验。
+
+例如：
+
+- **ResearchStudio-Idea**：如何把 ideation patterns 变成可执行的生成过程、候选池和 audit；
+- **AI Scientist v2**：如何维护多分支搜索树，而不是一次生成一个答案；
+- **RD-Agent**：Research / Development 分离，以及实验反馈如何重新进入研究循环；
+- **Robin**：实验结果如何更新 hypothesis，而不是只更新 performance；
+- **STORM**：如何实现多视角 problem reformulation；
+- **autoresearch**：统一实验预算、快速循环、结果账本和 keep/discard；
+- **academic-research-suite**：阶段分工、artifact、review、证据组织和长流程执行；
+- **Strong Inference / Steinhardt 对应的工程实现**：如何表示竞争解释、discriminating test、分支优先级和不确定性消除。
+
+所以这里存在一个很重要的区分：
+
+> **方法论告诉 Harness“科研上应该思考什么”；**\
+> **Harness 设计解决“怎样保证 Agent 真的这样思考，而且不会漏、不会漂移、不会过早收敛”。**
+
+这也是为什么现在不应该因为某个现成 Skill 的流程做得很好，就直接把它的方法论拿过来；但到了第二阶段，完全可以大量借鉴它们的**工程机制**。
+
+最终整个研究任务可以固定成：
+
+> **Phase I — Scientific Methodology**\
+> 用户经验 → 公开方法论 → 顶级论文逆向分析 → 确定 Method Design 科研逻辑
+>
+> **Phase II — Harness Engineering**\
+> 读取 ARIS 当前真实实现 → 分析 methodology-to-execution gap → 调研优秀 Skill/Harness 的工程机制 → 设计最小充分落地方案 → 用真实 E2E 验证
+
+而且第二阶段最关键的问题不是“Prompt 怎么写”，而是逐条检查：
+
+> **方法论中的每一个关键认知操作，在 Harness 中由谁执行、基于什么输入、产生什么 artifact、如何保留候选分支、什么时候允许收敛、什么证据会导致回退或重构。**
+
+这样才能避免最终得到一个“文档里拥有高级方法论，真实执行仍然只是普通 LLM brainstorming”的 `method_design`。
+
+下面我们经过讨论，最终形成符合要求也让我满意的第一阶段产物

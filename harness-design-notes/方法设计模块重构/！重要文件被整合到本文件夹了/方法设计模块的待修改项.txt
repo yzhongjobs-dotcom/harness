@@ -1,0 +1,232 @@
+
+
+## **核心要求**
+
+**先把当前 Method 真正完善成一条或多条完整、科学合理、现实可实现、能够真正解决 accepted research problem，并且已经具体到可以直接进入后续实验设计与验证的技术路线。**
+
+**然后，再把已经成立的技术路线按照正常顶会顶刊论文的颗粒度和组织方式写成完整 Methodology，并从这个 Method 中自然提炼 Contributions。**
+
+你的优先级一直是：
+
+> **完整、可行、真正解决问题的 Method
+> → 论文级 Methodology
+> → 自然提炼 Contributions
+> → 后续理论/实验验证。**
+
+而不是：
+
+> 先设计创新点、理论性质、模块数量或论文结构，再反过来拼 Method。
+
+---
+
+## 阶段 1：原始研究起点
+
+**你的要求：** 从 NNBO 出发，但不是照抄。你最初只给了一个很宽的 genealogy：
+
+> **contact model / representation → optimal impedance control**
+
+你的想法是：针对连续软接触扫描，先判断原来的软环境模型是否需要换成更适合当前问题的表示/模型，再根据这个新模型调整 optimal impedance control。
+
+**核心点：** 这只是**起点**，不是最终技术架构。
+
+**进度：** 后续正式 Method Design 已经不再只依赖你的直觉，而是进入 RCA/RMC、Evidence、Source Mechanism 驱动的设计。
+
+---
+
+## 阶段 2：通过 RCA/RMC 重新定义“到底该改什么”
+
+**你的要求：**
+
+> **“从失败中找问题并分析根因 + 通过迁移其他领域的顶刊顶会方法去解决问题。”**
+
+并且：
+
+> **“问题决定需要解决什么；根因决定方法应该做什么；具体算法只是实现手段。”**
+
+**核心点：** Final Method 应该从 accepted RCA/RMC 自然推出，而不是先选算法再倒推理由；同时要避免 Method Soup。
+
+**遇到的问题：** 如果只是“换更复杂的环境模型”，并不能保证真正改善阻抗决策。
+
+**进度：** 逐渐形成 decision-sufficient contact representation、约束与实际阻抗决策一致等更具体的 RMC。
+
+---
+
+## 阶段 3：形成 A/B，但方法中心开始漂移
+
+当时形成两条主要路线：
+
+* A：verified feasible incumbent
+* B：viability / admissible relation
+
+**你的要求：** 这些机制如果确实必要可以用，但不能因为它们工程上重要，就自动成为论文科学主线。
+
+**遇到的问题：** 你感觉结果“很怪”，因为主线从原来较自然的：
+
+> **contact model → optimal impedance**
+
+逐渐变成了：
+
+> capacity / feasibility / deadline totality
+
+**核心问题：** **实时可行性机制被抬得过高，scientific center drift。**
+
+**进度：** 决定 `request_revision`，重新锚定 Method Design。
+
+---
+
+## 阶段 4：R6/R7/R8 重锚定
+
+经过 revision 后，R8 形成了现在较成熟的主线，大致是：
+
+> decision-sufficient soft-contact modeling
+> → calibration-out handling/adaptation
+> → constrained normal–tangential impedance optimization
+> → closed-loop execution
+
+**你的要求：** 重新把“接触建模/表示 → optimal impedance”放回科学中心，同时真正解决 calibration-out，而不是只检测 OOD 后拒绝。
+
+**遇到的问题：** 当前方法虽然已经很成型，但仍存在 A/B totality 分支，以及部分关系尚未完全闭合。
+
+**进度：** R8 已经从“Principle”走到了**比较完整的论文级 Method synthesis**，但还没达到你要的最终完成状态。
+
+---
+
+## 阶段 5：你开始追问“这到底是不是完整技术路线”
+
+**你的要求：**
+
+> **第一，审查是否合理可行且真正解决之前确定的研究问题；第二，检查 Method 是否像顶会顶刊，而不是搞一大堆工程化方法。**
+
+同时你要求能把技术路线讲成：
+
+> “用 XX 技术做 XX，然后用 XX 做 XX，再用 XX 做 XX。”
+
+**核心点：** 最终方法必须既**真的能做**，又**能被清楚地理解成一条自然技术路线**。
+
+**遇到的问题：** 审查后发现 R8 已经有完整主干，但还有未完全确定的关系和分支，所以不能简单说“最终 Method 已完成”。
+
+**进度：** 确认当前不是“没有方法”，而是**Method 已高度成型，需要继续完善到可直接实验**。
+
+---
+
+## 阶段 6：你纠正“顶会顶刊”的含义
+
+我一度把“顶会顶刊级”理解成必须现在就证明：
+
+* scientific object；
+* mechanism；
+* property；
+* novelty strength。
+
+**你的纠正：**
+
+> **你要的是 Method 看起来像正常顶会顶刊论文，而不是工程堆砌。创新性不是在这里先验判断的。**
+
+因为有些机制本来就可能来自已有方法迁移。
+
+**核心点：** **顶会顶刊级主要指 Method 的成熟度、组织方式、科学抽象层级和自然性，不是现在就要求每个组件都具有独立 novelty。**
+
+**进度：** 明确 Contributions 应在 Method 完成后再自然提炼。
+
+---
+
+## 阶段 7：你纠正“完整 Method ≠ 工程规格书”
+
+**你的要求：**
+
+> 你是想继续完善 Method，形成**切实可行的 Method，然后去做实验**。
+
+但同时：
+
+> **顶会顶刊的 Method 不可能把全部工程细节都当核心方法讲清楚。**
+
+**核心点：**
+
+**科研设计内部必须完整到实验做得出来；论文 Method 只需要保留科学方法成立所必需的结构和实现。**
+
+**遇到的问题：** 如果把 sensor、timeout、fallback、solver、通信等全部提升成 Method 主体，就会再次偏工程化。
+
+**进度：** 确定要区分：
+
+* **核心 scientific Method**
+* implementation / experimental details
+
+但这个区分只是为了防止 Method 被工程细节淹没，不是新的科研目标。
+
+---
+
+## 阶段 8：你纠正“路线数量不预设”被过度强调
+
+**你的要求原意很简单：**
+
+> A 更好就 A，B 更好就 B；如果真的无法判断，就给两个或多个完整版本。
+
+**核心点：** **路线数量不是任务。**
+
+**遇到的问题：** 我曾把“路线数量不预设”写成与核心目标并列的大要求，反而分散注意力。
+
+**进度：** 现在正确处理是：自然判优就收敛，确实无法判优才保留多个完整方案。
+
+---
+
+## 阶段 9：你纠正提示词不能预设 Method 结构
+
+我曾把：
+
+> contact model → learning/identification → adaptation → optimization
+
+写成固定链条。
+
+**你的纠正：** 你的原始预设只有：
+
+> **contact model / representation → optimal impedance control**
+
+至于 learning、identification、adaptation、MPC、RLS 等是否需要，应该由前序科研推导决定。
+
+**核心点：** **提示词不能替 Agent 预设最终技术结构。**
+
+但当前 R8 中已经推导出的具体机制也不能因为“不是你原始预设”就被删掉。
+
+**进度：** 现在的原则是：R8 是已有成果，继续科学审查；合理则保留，不合理则改。
+
+---
+
+## 阶段 10：你纠正 Harness 操作规则不能喧宾夺主
+
+**你的要求：** 核心仍然是科研 Method，不是让提示词变成 Harness 操作手册。
+
+**遇到的问题：** 我之前加入了很多 phase / Gate / Reviewer / state transition 规则。
+
+**核心点：** 这些只能保留**当前任务确实需要的最小执行约束**。
+
+当前真正有用的只有：
+
+* 如果仍在 `principle_human_selection`，用 **`request_revision`** 继续完善 Method；
+* **`PRINCIPLE_PACKET_READY` 不能被 Agent 当成本轮任务完成。**
+
+**进度：** 其余 Harness 细节尽量不占据提示词注意力。
+
+---
+
+# **当前阶段的最终要求**
+
+现在你的要求已经收敛得很清楚：
+
+**基于当前 R8、accepted RCA/RMC、已有 Evidence / Source Mechanism 和前序 Method Design，继续自主推导、审查和完善 Method。不是从零重做，也不是机械补 R8。合理的保留，不充分的完善，不必要或不自然的修改、融合、降级、替换。**
+
+**首先必须得到真正完整、科学合理、现实可实现、能够解决 accepted research problem，并且足以直接进入后续实验设计与验证的技术路线。**
+
+然后才：
+
+**1. 用几句话准确讲清完整技术路线；
+2. 按正常顶会顶刊论文的成熟度、组织方式和颗粒度写完整 Methodology；
+3. 从已经形成的 Method 中自然提炼 Contributions；
+4. 明确下一阶段理论和实验需要验证什么。**
+
+当前最大的防偏要求只有两个：
+
+> **第一优先级永远是把 Method 本身做对、做完整。**
+
+> **不要为了 novelty、理论形式、模块数量、Contribution 数量或论文结构反向设计 Method。**
+
+这才是我们整段对话推进到现在真正收敛出来的要求。
