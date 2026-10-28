@@ -36,7 +36,6 @@ from .gateways import (
 from .state import _StateStore
 from .project_setup import (
     ProjectRuntimeError,
-    install_project_codex_layer,
     verify_formal_native_subagent_runtime,
 )
 from .validators import (
@@ -228,10 +227,6 @@ class ARISController:
         executor: str,
     ) -> "ARISController":
         controller = cls(root, run_id, workflow_path)
-        try:
-            install_project_codex_layer(controller.root)
-        except ValueError as exc:
-            raise ControllerError(str(exc)) from exc
         state_path = run_state._run_path(str(controller.root), run_id)
         if state_path.exists():
             existing = run_state._load(str(controller.root), run_id)
@@ -1800,12 +1795,10 @@ class ARISController:
         *,
         runtime_project_root: str | Path | None = None,
     ) -> dict[str, str]:
-        """Verify Hook discovery before the current Codex turn creates a child.
+        """Describe a Controller-authorized reader/reviewer's portable runtime.
 
-        This is intentionally a non-transitioning Controller check: it binds a
-        live, Controller-authorized reader/reviewer role to the runtime cwd
-        which Codex children inherit, while leaving scientific work and the
-        existing Stop/SubagentStop receipt path untouched.
+        Run state and role authorization are enforced independently of the
+        caller's cwd or optional Codex profiles/Hooks.
         """
         if role not in self.allowed_agents():
             raise ControllerError(
@@ -1820,7 +1813,7 @@ class ARISController:
         *,
         runtime_project_root: str | Path | None = None,
     ) -> dict[str, str]:
-        """Apply the one project-root verifier at a formal Hook-bound authorization."""
+        """Return invocation context without requiring a matching cwd or Hooks."""
         try:
             result = verify_formal_native_subagent_runtime(
                 self.root,
@@ -9388,8 +9381,8 @@ class ARISController:
         return {"deferred_paper_ids": deferred, "reason": defer_reason}
 
     def read_full_text(self, paper_id: str, tool: str, read: ReadCallable) -> Any:
-        # A read event is the only formal paper_reader binding. Verify before
-        # allocating its ID, budget, ledger record, or state entry.
+        # Runtime context is portable; admission, event identity and source
+        # hashes below remain the formal paper_reader binding.
         self._require_formal_native_runtime("paper_reader")
         ledger = self._paths()["search_log"]
         read_event_id = uuid.uuid4().hex

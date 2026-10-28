@@ -11,8 +11,7 @@ except ModuleNotFoundError:  # Python 3.10 support
     import tomli as tomllib
 
 from arisctl.project_setup import (
-    ProjectRuntimeError,
-    REQUIRED_PROJECT_HOOK_TRUST,
+    OPTIONAL_PROJECT_HOOKS,
     install_project_codex_layer,
     verify_formal_native_subagent_runtime,
 )
@@ -54,19 +53,17 @@ def test_project_layer_installs_every_declared_agent_without_gemini_bridge(
 
     agents_md = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     assert "reviewer role named by the live Controller request" in agents_md
-    assert "Controller authorization automatically verifies" in agents_md
-    assert "parent-workspace or other-project root is a hard stop" in agents_md
+    assert "any working directory" in agents_md
+    assert "Hooks are optional integrations" in agents_md
     assert "native generic compatibility path" in agents_md
     assert "nested `codex exec`" in agents_md
     assert "Every scientific-core reviewer" in agents_md
     assert "configured Codex CLI role" in agents_md
     assert "same-family verdicts are accepted" in agents_md
-    assert "During project initialization, ask the user once" in agents_md
-    assert "After confirmation, complete the corresponding `/hooks` trust action" in agents_md
-    for event, status_message in REQUIRED_PROJECT_HOOK_TRUST:
-        assert f"`{event}` — `{status_message}`" in agents_md
+    assert "Do not request Hook trust as a prerequisite" in agents_md
+    assert "`/hooks` trust action" not in agents_md
     rules = (tmp_path / ".codex" / "rules" / "aris.rules").read_text(encoding="utf-8")
-    assert "Controller automatically verifies" in rules
+    assert "ARIS calls are portable" in rules
 
     hook_config = json.loads((tmp_path / ".codex" / "hooks.json").read_text(encoding="utf-8"))
     installed_hooks = {
@@ -76,35 +73,32 @@ def test_project_layer_installs_every_declared_agent_without_gemini_bridge(
         for entry in group.get("hooks", [])
         if isinstance(entry, dict) and entry.get("type") == "command"
     }
-    assert installed_hooks == set(REQUIRED_PROJECT_HOOK_TRUST)
+    assert installed_hooks == set(OPTIONAL_PROJECT_HOOKS)
 
-def test_formal_native_runtime_preflight_requires_exact_managed_project_root(
-    tmp_path: Path,
-) -> None:
-    install_project_codex_layer(tmp_path)
-
+def test_formal_native_runtime_is_portable_without_project_layer(tmp_path: Path) -> None:
+    project = tmp_path / "run"
+    caller = tmp_path / "other-project"
+    project.mkdir()
+    caller.mkdir()
     passed = verify_formal_native_subagent_runtime(
-        tmp_path,
-        "paper_reader",
-        runtime_project_root=tmp_path,
+        project, "paper_reader", runtime_project_root=caller,
     )
-    assert passed == {
-        "runtime_project_root": str(tmp_path.resolve()),
-        "project_root": str(tmp_path.resolve()),
-        "role": "paper_reader",
-    }
-    assert verify_formal_native_subagent_runtime(
-        tmp_path,
-        "independent_problem_reviewer",
-        runtime_project_root=tmp_path,
-    )["role"] == "independent_problem_reviewer"
+    assert passed["runtime_project_root"] == str(caller.resolve())
+    assert passed["project_root"] == str(project.resolve())
+    assert passed["role"] == "paper_reader"
+    assert passed["execution_mode"] == "portable"
+    assert Path(passed["role_contract_path"]).is_file()
+    assert not (project / ".codex").exists()
 
-    with pytest.raises(ProjectRuntimeError, match="runtime project root"):
-        verify_formal_native_subagent_runtime(
-            tmp_path,
-            "paper_reader",
-            runtime_project_root=tmp_path.parent,
-        )
+
+def test_optional_layer_does_not_overwrite_unmanaged_codex_config(tmp_path: Path) -> None:
+    config = tmp_path / ".codex" / "config.toml"
+    config.parent.mkdir()
+    original = b'model = "user-selected-model"\n'
+    config.write_bytes(original)
+    assert install_project_codex_layer(tmp_path) is None
+    assert config.read_bytes() == original
+    assert not (config.parent / "hooks.json").exists()
 
 
 def test_every_scientific_core_reviewer_uses_direct_codex_cli() -> None:

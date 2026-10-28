@@ -34,29 +34,32 @@ or final-acceptance review. Do not create role-named agents for the Main tasks.
 
 ## Native reader/reviewer dispatch
 
+ARIS is callable from any working directory through `arisctl --root RUN_ROOT`.
+The run root locates state and artifacts. Matching the caller's directory,
+installing a project-local `.codex` layer, and trusting Hooks are not prerequisites.
+Do not ask the user to switch directories or approve Hooks before research.
+
 Reader and coverage-review work stays inside the current active Codex turn.
-Prefer the configured native `paper_reader` or `coverage_reviewer` role. If this
-runtime cannot select that custom role, use a current-turn native generic child
-only for these two roles; never emulate a configured role through nested
-`codex exec`, a new Codex CLI session, or a new top-level turn.
+Prefer a configured native `paper_reader` or `coverage_reviewer` role. If the
+host cannot select it, use a current-turn native generic child for these roles
+with `fork_turns = none`. Load its exact role contract from the harness checkout
+(the diagnostic preflight returns `role_contract_path`); include that contract
+and the Controller-bound task. Never simulate a native child with nested
+`codex exec` or a new top-level turn.
 
-The generic child must use `fork_turns = none`. Its Controller-bound user task
-must contain exactly one one-line `ARIS_NATIVE_GENERIC_COMPAT:` JSON binding
-with `dispatch_mode: native_generic_compat`, `formal_role`, the SHA-256 of the
-configured role's exact `developer_instructions`, and that verbatim contract.
-For `paper_reader`, bind `paper_id`, `read_event_id`, and `content_sha256` and
-include only the Controller-supplied paper content. For `coverage_reviewer`,
-bind the live `run_id`, `review_request_id`, and exact
-`reviewed_artifact_hashes`. The native lifecycle hook recognizes this only from
-the real child transcript and records `dispatch_mode = native_generic_compat`;
-it rejects incomplete bindings, non-native/root children, reader tool use, and
-reviewer capabilities beyond the configured contract. Submit no formal output
-unless that attestation exists.
+For generic dispatch, retain one `ARIS_NATIVE_GENERIC_COMPAT:` JSON binding with
+`dispatch_mode: native_generic_compat`, `formal_role`, and the role contract's
+SHA-256. Bind a reader to `paper_id`, `read_event_id`, `content_sha256`, and only
+the Controller-supplied content; bind a coverage reviewer to the live `run_id`,
+`review_request_id`, and exact `reviewed_artifact_hashes`. Reader tool use and
+reviewer capabilities still follow their supplied contracts.
 
-For a structurally migrated completed read event, first call
-`python -m arisctl materialize-completed-read-event <run_id> <paper_id> <read_event_id>`
-and pass its returned binding and `content` verbatim to the native
-`paper_reader`; do not call `read-user-fulltext`, which creates a new event.
+Hooks may automatically record provenance when available. Their absence must
+not block reading or Evidence Card submission; the Controller still checks
+admission, completed source reads, hashes and Evidence schema. Do not claim a
+Hook ran when it did not. For an independent coverage verdict without Hooks,
+use the existing `submit-coverage-review-transcript` path with the completed
+native child's actual transcript; preserve its live request and artifact bindings.
 
 Scientific source policy and the downstream problem boundary remain defined by:
 

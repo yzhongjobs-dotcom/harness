@@ -1559,69 +1559,71 @@ def test_native_generic_paper_reader_attestation_binds_task_and_has_no_tools(
     assert not receipt_path.exists()
 
 
-def test_native_reader_authorization_rejects_wrong_root_before_child_or_formal_evidence_work(
+def test_reader_and_evidence_work_from_another_directory_without_hooks(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    controller = start_controller(tmp_path)
-    install_project_codex_layer(tmp_path)
+    controller = start_controller(tmp_path, native_layer=False)
     reach_reading(controller)
-    state_before = controller.status()
-
     monkeypatch.chdir(tmp_path.parent)
-    with pytest.raises(ControllerError, match="runtime project root"):
-        controller.read_full_text("P1", "fake-paper", lambda _: "must not run")
-
-    assert controller.status() == state_before
+    assert controller.preflight_native_subagent_dispatch("paper_reader")["execution_mode"] == "portable"
+    read = controller.read_full_text("P1", "fake-paper", lambda _: "full paper")
+    evidence = card(read)
+    bad = deepcopy(evidence)
+    bad["content_sha256"] = "0" * 64
+    with pytest.raises(ControllerError, match="completed full-text gateway event"):
+        controller.submit_evidence_card("P1", bad)
+    controller.submit_evidence_card("P1", evidence)
+    accepted = controller.status()["research_lit"]["accepted_artifacts"]["evidence:P1"]
+    assert "paper_reader_agent_id" not in accepted  # No invented Hook provenance.
+    assert not (tmp_path / ".codex").exists()
     assert not (tmp_path / ".aris" / "agent-attestations").exists()
-    assert not (
-        tmp_path / ".aris" / "canonical" / controller.run_id / "evidence-P1.json"
-    ).exists()
 
 
-def test_coverage_request_authorization_rejects_wrong_root_without_state_side_effects(
+def test_coverage_request_is_portable_without_hooks(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    controller = start_controller(tmp_path)
+    controller = start_controller(tmp_path, native_layer=False)
     reach_synthesis(controller)
-    state_before = controller.status()
-
     monkeypatch.chdir(tmp_path.parent)
-    with pytest.raises(ControllerError, match="runtime project root"):
-        controller.submit_field_map(field_map())
+    state = controller.submit_field_map(field_map())
+    assert state["research_lit"]["coverage_review_request"]["run_id"] == controller.run_id
+    assert not (tmp_path / ".codex").exists()
 
-    assert controller.status() == state_before
 
-
-def test_all_core_reviewer_request_authorizations_reject_wrong_root(
+def test_all_core_reviewer_runtimes_accept_another_working_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    controller = start_controller(tmp_path)
-    state_before = controller.status()
-    formal_specs = [
-        spec
-        for spec in controller.workflow["phases"]
-        if spec.get("formal_gate") and isinstance(spec.get("reviewer_role"), str)
-    ]
+    controller = start_controller(tmp_path, native_layer=False)
+    state = controller.status()
+    formal_specs = [spec for spec in controller.workflow["phases"]
+                    if spec.get("formal_gate") and isinstance(spec.get("reviewer_role"), str)]
     assert formal_specs
-
     monkeypatch.chdir(tmp_path.parent)
     for spec in formal_specs:
-        with pytest.raises(ControllerError, match="runtime project root"):
-            controller._new_core_review_request({}, {"phase": spec["phase"]}, spec)
-    assert controller.status() == state_before
+        context = controller._require_formal_native_runtime(spec["reviewer_role"])
+        assert context["execution_mode"] == "portable"
+        assert context["runtime_project_root"] == str(tmp_path.parent.resolve())
+    assert controller.status() == state
 
 
-def test_validation_reviewer_request_authorization_rejects_wrong_root(
+def test_validation_reviewer_request_accepts_another_working_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     controller = confirmed_validation_controller(tmp_path)
-    state_before = controller.status()
-
     monkeypatch.chdir(tmp_path.parent)
-    with pytest.raises(ControllerError, match="runtime project root"):
-        controller.validation_handoff()
+    handoff = controller.validation_handoff()
+    assert handoff["run_id"] == controller.run_id
 
-    assert controller.status() == state_before
+
+def test_start_preserves_caller_codex_config_without_installing_hooks(tmp_path: Path) -> None:
+    config = tmp_path / ".codex" / "config.toml"
+    config.parent.mkdir()
+    original = b'model = "user-selected-model"\n'
+    config.write_bytes(original)
+    ARISController.start(tmp_path, "portable-run", executor="codex")
+    assert config.read_bytes() == original
+    assert not (config.parent / "hooks.json").exists()
+    assert not (config.parent / "ARIS_CONTROLLER_LAYER.json").exists()
 
 
 def test_non_native_main_phase_is_not_subject_to_runtime_root_invariant(
@@ -2006,9 +2008,12 @@ def start_controller(
     queries: list[str] | None = None,
     run_id: str = "run-1",
     executor: str = "codex-gpt-5.6-sol",
+    native_layer: bool = True,
 ) -> ARISController:
     write_policy(root)
     controller = ARISController.start(root, run_id, executor=executor)
+    if native_layer:
+        install_project_codex_layer(root)  # Explicit opt-in for lifecycle Hook fixtures.
     approve(controller, "source_policy_approval")
     query_texts = queries or ["test field"]
     controller.submit_query_plan(
@@ -7686,7 +7691,7 @@ def test_validation_handoff_rejects_prompt_or_legacy_files_without_formal_route(
         "execution_context: NON_CANONICAL_AD_HOC\n# user-supplied method\n",
         encoding="utf-8",
     )
-    with pytest.raises(ControllerError, match="managed .codex layer"):
+    with pytest.raises(ValueError, match="not controller-managed"):
         ARISController(legacy_root, "legacy").validation_handoff()
     assert legacy_plan.is_file()
     assert build_parser().parse_args(["validation-handoff", "run-1"]).command == (

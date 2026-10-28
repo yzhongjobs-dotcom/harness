@@ -1,7 +1,6 @@
-# Controller automatically verifies the current task root before issuing each
-# formal reader event or Hook-bound reviewer request. A parent workspace or
-# another project root must fail before native work; the diagnostic preflight
-# CLI never substitutes for Controller authorization or Hook provenance.
+# ARIS calls are portable: --root locates state, independently of caller cwd.
+# Local Codex profiles and Hooks are optional and never gate native dispatch.
+# Controller role, source, evidence and Human Gate bindings still apply.
 
 # Human Gate commands must run outside the workspace sandbox and prompt every time.
 prefix_rule(
