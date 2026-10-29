@@ -77,9 +77,11 @@ SCREENING_BASES = {
     "TITLE_ONLY",
     "TITLE_ABSTRACT",
     "TITLE_ONLY_ABSTRACT_UNAVAILABLE",
+    "IDENTITY_UNRESOLVED",
     "FULL_TEXT",
 }
-SCREENING_FINAL_STATUSES = {"IN_SCOPE", "OUT_OF_SCOPE", "DUPLICATE"}
+# HOLD_IDENTITY closes intake only; it never grants reading or scientific inclusion.
+SCREENING_FINAL_STATUSES = {"IN_SCOPE", "OUT_OF_SCOPE", "DUPLICATE", "HOLD_IDENTITY"}
 READING_PRIORITY_TIERS = {
     "RECENT_AUTHORITATIVE_REVIEWS",
     "HIGH_CITATION_BACKBONE",
@@ -7390,6 +7392,32 @@ class ARISController:
             )
         return metadata_rows
 
+    def retry_failed_query(self, plan_item_id: str, *, reason: str) -> dict[str, str]:
+        """Authorize one new, budgeted attempt while retaining the failed event."""
+        if not str(reason).strip():
+            raise ControllerError("failed-query retry requires a reason")
+        with self._store.mutate() as state:
+            research = self._require_stage(state, "METADATA_RETRIEVAL")
+            planned = next((p for p in research.get("planned_queries", [])
+                            if p.get("plan_item_id") == plan_item_id
+                            or (not p.get("plan_item_id") and p.get("query") == plan_item_id)), None)
+            if not isinstance(planned, dict) or planned.get("status") != "failed":
+                raise ControllerError("retry requires a failed accepted query-plan item")
+            previous_id = str(planned.get("query_id") or "")
+            event = research.get("query_events", {}).get(previous_id)
+            if not isinstance(event, dict) or event.get("status") != "failed":
+                raise ControllerError("retry requires its matching failed gateway event")
+            planned["status"] = "planned"
+            planned.pop("query_id", None)
+            planned.pop("retry_query_id", None)  # The next execution consumes new budget.
+        append_jsonl(self._paths()["search_log"], ledger_event(
+            run_id=self.run_id, stage="METADATA_RETRIEVAL", action="query_retry_authorized",
+            query_id=previous_id, query=str(planned["query"]), tool="arisctl.retry-query",
+            result_status="planned_new_attempt", event_id=uuid.uuid4().hex,
+            details={"plan_item_id": plan_item_id, "reason": reason},
+        ))
+        return {"plan_item_id": plan_item_id, "previous_query_id": previous_id, "status": "planned"}
+
     def recover_interrupted_query(self, plan_item_id: str, *, reason: str) -> dict[str, str]:
         """Return an orphaned started query to the plan without refunding its budget."""
 
@@ -8385,6 +8413,16 @@ class ARISController:
                     raise ControllerError(
                         "use TITLE_ABSTRACT when an abstract is available"
                     )
+            if explicit_screening and screening_basis == "IDENTITY_UNRESOLVED":
+                if (
+                    paper.get("identity_verification_status") != "complete"
+                    or paper.get("identity_status") == "verified"
+                    or not screening_in_scope or duplicate or fulltext_selected
+                ):
+                    raise ControllerError(
+                        "identity hold requires completed unsuccessful verification, "
+                        "no exclusion/duplicate claim, and no full-text selection"
+                    )
             if explicit_screening and screening_basis == "FULL_TEXT":
                 accepted_evidence = (
                     f"evidence:{paper_id}" in research.get("accepted_artifacts", {})
@@ -8488,7 +8526,9 @@ class ARISController:
                 decision_exception = None
             if explicit_screening:
                 screening_status = (
-                    "DUPLICATE"
+                    "HOLD_IDENTITY"
+                    if screening_basis == "IDENTITY_UNRESOLVED"
+                    else "DUPLICATE"
                     if duplicate
                     else "IN_SCOPE"
                     if screening_in_scope

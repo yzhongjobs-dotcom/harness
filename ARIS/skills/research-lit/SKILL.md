@@ -150,7 +150,13 @@ are not abstracts. An in-scope abstract-only record must preserve the abstract
 and the reason full text was not selected. If normal enrichment has verified
 identity but cannot obtain an actual abstract, use
 `TITLE_ONLY_ABSTRACT_UNAVAILABLE`; this completes screening but is never
-scientific Evidence. Priority/admission metadata never authorizes a read by
+scientific Evidence. If completed identity enrichment cannot verify the record,
+use `IDENTITY_UNRESOLVED` with `--abstract-only` and an explicit pending reason.
+This records `HOLD_IDENTITY`, not scientific inclusion or irrelevance. It permits
+reading other verified sources but never permits selecting or reading the held
+record. Retain any material identity uncertainty in the map's coverage gaps;
+intake completion alone does not establish coverage or saturation.
+Priority/admission metadata never authorizes a read by
 itself: after all current initial candidates are screened, explicitly select a
 non-empty initial-cognition subset. Prefer complementary authoritative Reviews;
 if none are usable, select the minimal foundational/representative Primary

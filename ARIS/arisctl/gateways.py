@@ -891,6 +891,8 @@ def serpapi_google_scholar_search(
         folded = error.casefold()
         if any(token in folded for token in ("api key", "account", "quota", "credit", "rate limit")):
             raise ProviderUnavailable(provider, "authentication or quota failure")
+        if folded == "google hasn't returned any results for this query.":
+            return []  # A completed zero-hit search, not provider failure.
         raise ValueError(f"SerpApi rejected the Scholar query: {error}")
     organic = payload.get("organic_results") or []
     if not isinstance(organic, list):

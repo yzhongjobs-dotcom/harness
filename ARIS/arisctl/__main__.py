@@ -188,6 +188,11 @@ def build_parser() -> argparse.ArgumentParser:
     retry_enrichment.add_argument("paper_id")
     retry_enrichment.add_argument("--reason", required=True)
 
+    retry_query = sub.add_parser("retry-query")
+    retry_query.add_argument("run_id")
+    retry_query.add_argument("plan_item_id")
+    retry_query.add_argument("--reason", required=True)
+
     recover_query = sub.add_parser("recover-interrupted-query")
     recover_query.add_argument("run_id")
     recover_query.add_argument("plan_item_id")
@@ -249,6 +254,7 @@ def build_parser() -> argparse.ArgumentParser:
             "TITLE_ONLY",
             "TITLE_ABSTRACT",
             "TITLE_ONLY_ABSTRACT_UNAVAILABLE",
+            "IDENTITY_UNRESOLVED",
             "FULL_TEXT",
         ),
         required=True,
@@ -293,6 +299,7 @@ def build_parser() -> argparse.ArgumentParser:
             "TITLE_ONLY",
             "TITLE_ABSTRACT",
             "TITLE_ONLY_ABSTRACT_UNAVAILABLE",
+            "IDENTITY_UNRESOLVED",
             "FULL_TEXT",
         ),
         required=True,
@@ -535,6 +542,8 @@ def main() -> int:
                     reason=args.reason,
                     identity_verifier=crossref_openalex_verify_metadata,
                 )
+            elif args.command == "retry-query":
+                result = controller.retry_failed_query(args.plan_item_id, reason=args.reason)
             elif args.command == "recover-interrupted-query":
                 result = controller.recover_interrupted_query(
                     args.plan_item_id,
